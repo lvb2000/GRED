@@ -50,7 +50,7 @@ logging.getLogger().addHandler(logging.StreamHandler(sys.stdout))
 logging.info(args)
 
 class TrainState(train_state.TrainState):
-    key: random.KeyArray
+    key: random
     train_loss: float
     eval_loss: float
     correct: int
