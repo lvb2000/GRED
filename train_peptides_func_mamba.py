@@ -93,6 +93,7 @@ def main():
     optimizer.zero_grad()
 
     for e in range(args.epochs):
+        epoch_loss = 0.0
         # shuffle all training samples by indices
         train_indices = np.random.permutation(train_size)
         for s in range(train_steps_per_epoch):
@@ -114,6 +115,13 @@ def main():
             torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
             optimizer.step()
             optimizer.zero_grad()
+
+            # Accumulate loss for this epoch
+            epoch_loss += loss.item()
+        
+        # Calculate and print average loss for this epoch
+        avg_epoch_loss = epoch_loss / train_steps_per_epoch
+        print(f"\nEpoch {e+1}/{args.epochs} - Average Training Loss: {avg_epoch_loss:.4f}")
 
 if __name__ == "__main__":
     main()
