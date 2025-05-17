@@ -87,10 +87,19 @@ class GMBLayer(nn.Module):
         # x represents the hidden state after aggregation
         x_skip = self.mlp1(h)
         #----------- Mamba block from Graph-Mamba paper -----------#
-        x = self.layer_norm(x_skip)
+        # Combine batch and node dimensions
+        seqlen, batch_size, num_nodes, hidden_dim = x_skip.shape
+        # Reshape to (batch_size, seqlen * num_nodes, hidden_dim)
+        x = x_skip.reshape(seqlen, batch_size * num_nodes, hidden_dim)
+        # Transpose to (batch_size * num_nodes, seqlen, hidden_dim)
+        x = x.transpose(0, 1)
+        x = self.layer_norm(x)
         x = self.self_attn(x)
         x = self.mlp2(x)
-        return x + x_skip
+        # Reshape back to original dimensions
+        x = x.transpose(0, 1)  # Back to (seqlen, batch_size * num_nodes, hidden_dim)
+        x = x.reshape(seqlen, batch_size, num_nodes, hidden_dim)[0]
+        return x + x_skip[0]
 
 class Head(nn.Module):
 
