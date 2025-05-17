@@ -118,6 +118,7 @@ class GPSModel(nn.Module):
     """
 
     def __init__(self, node_feature_dim, dim_hidden, dim_out):
+        self.dim_hidden = dim_hidden
         super().__init__()
         #----------- Node feature Encoder -----------#
         embedding_modules = []
