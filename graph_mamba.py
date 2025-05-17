@@ -126,7 +126,7 @@ class GPSModel(nn.Module):
             nn.init.normal_(embedding.weight, mean=0.0, std=0.01)
             embedding_modules.append(embedding)
         self.embedding_modules = nn.Sequential(*embedding_modules)
-        self.linearEncoder = nn.Linear(9, dim_hidden)
+        self.linearEncoder = nn.Linear(dim_hidden, dim_hidden)
         self.gelu = nn.GELU()
         #----------- Modified Graph Mamba Layer -----------#
         layers = []
@@ -136,13 +136,22 @@ class GPSModel(nn.Module):
         #----------- Graph Predicition Head -----------#
         self.head = Head(dim_hidden, dim_out)
 
-    def forward(self, input, node_mask, dist_mask):
+    def forward(self, inputs, node_mask, dist_mask):
         #----------- Node feature Encoder -----------#
-        embeddings = []
-        for embedding_module in self.embedding_modules:
-            embedding = embedding_module(input)
-            embeddings.append(embedding)
-        x = torch.stack(embeddings, dim=2)
+        # Initialize x as zeros
+        # Shape: [batch_size, num_nodes, dim_hidden]
+        x = torch.zeros(inputs.shape[0], inputs.shape[1], self.dim_hidden, device=inputs.device)
+        
+        # Iterate through each feature dimension
+        for i in range(inputs.shape[-1]):
+            # Get the current feature
+            current_feature = inputs[..., i]
+            # Convert to long type for embedding
+            current_feature = current_feature.long()
+            # Get embedding for this feature
+            embedding = self.embedding_modules[i](current_feature)
+            # Add to running sum
+            x = x + embedding
 
         x = self.linearEncoder(self.gelu(x))
         
