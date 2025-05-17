@@ -12,6 +12,9 @@ from flax.training import train_state
 from model import Peptides, recurrent_param, no_decay_param
 from datasets import load_peptides
 from utils import map_nested_fn, eval_ap
+from graph_mamba import GPSModel
+import torch
+from torch_geometric.loader import DataLoader
 
 max_nodes = 444
 max_hops = 40
@@ -93,6 +96,7 @@ def eval_step(state, batch):
     return state
 
 def main():
+    # train_set[0] = train_xy, train_set[1] = train_distances
     train_set, val_set, test_set = load_peptides(args.name)
     model = Peptides(
         num_layers=args.num_layers,
@@ -106,11 +110,16 @@ def main():
         drop_rate=args.drop_rate,
         act=args.act
     )
+    # configure seeds
     root_key = random.PRNGKey(args.seed)
     key, params_key, dropout_key = random.split(root_key, 3)
+    # shape: (32,40,444,444)
     dist_mask = np.zeros((args.batch_size, max_hops, max_nodes, max_nodes), dtype=np.bool_)
+    # apply the batching
     for i in range(args.batch_size):
+        # train_set[1][0] distance mask for first graph
         dist_mask[i, :train_set[1][i].shape[0], :train_set[1][i].shape[1], :train_set[1][i].shape[2]] = train_set[1][i]
+    # num_hops decideds how far nodes can be until they are discarded
     params = model.init(params_key,
                         train_set[0]["x"][:args.batch_size],
                         train_set[0]["node_mask"][:args.batch_size],
@@ -188,11 +197,14 @@ def main():
     patience = 0
     for e in range(args.epochs):
         start = time.time()
+        # shuffle all training samples by indices
         train_indices = np.random.permutation(train_size)
         for s in range(train_steps_per_epoch):
+            # go over all training samples with batches
             batch_indices = train_indices[s * args.batch_size:(s + 1) * args.batch_size]
             dist_mask = np.zeros((len(batch_indices), max_hops, max_nodes, max_nodes), dtype=np.bool_)
             for i, idx in enumerate(batch_indices):
+                # build up full distance mask for every graph in current batch
                 dist_mask[i, :train_set[1][idx].shape[0], :train_set[1][idx].shape[1], :train_set[1][idx].shape[2]] = train_set[1][idx]
             batch = {
                 "x": train_set[0]["x"][batch_indices],
@@ -242,6 +254,7 @@ def main():
     test_indices = np.arange(test_size)
     y_pred = []; y_true = []
     for s in range(test_steps):
+        # manual batching
         batch_indices = test_indices[s * args.batch_size:(s + 1) * args.batch_size]
         dist_mask = np.zeros((len(batch_indices), max_hops, max_nodes, max_nodes), dtype=np.bool_)
         for i, idx in enumerate(batch_indices):
@@ -257,6 +270,6 @@ def main():
         y_pred.append(np.asarray(state.logits))
     test_ap = eval_ap(y_true=np.concatenate(y_true), y_pred=np.concatenate(y_pred))
     logging.info(f"Best val ap {best_val_ap} at epoch {ckpt_at}; Test ap: {test_ap}")
-
+            
 if __name__ == "__main__":
     main()

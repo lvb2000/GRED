@@ -22,7 +22,7 @@ def process(name):
     for split in splits:
         dataset = GNNBenchmarkDataset(root='./data', name=name, split=split,
                                       transform=ToDense(num_nodes=metadata[name]['max_num_nodes']))
-        keys = dataset[0].keys
+        keys = list(dataset[0].keys())
         dataset_as_dict = {key: [] for key in keys}
         for g in dataset:
             for key in keys:
@@ -56,7 +56,7 @@ def process_zinc():
     for split in splits:
         dataset = ZINC(root='./data/ZINC', subset=True, split=split,
                        transform=ToDense(num_nodes=metadata['ZINC']['max_num_nodes']))
-        keys = dataset[0].keys
+        keys = list(dataset[0].keys())
         dataset_as_dict = {key: [] for key in keys}
         for g in dataset:
             for key in keys:
