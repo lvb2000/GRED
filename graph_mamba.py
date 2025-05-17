@@ -51,6 +51,7 @@ class MLP2(nn.Module):
         return x
 
 def sumNodeFeatures(distance_masks,node_features):
+    distance_masks = distance_masks.float()
     return torch.transpose(distance_masks, 0, 1) @ node_features
 
 
