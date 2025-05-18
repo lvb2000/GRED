@@ -3,7 +3,7 @@ import numpy as np
 from datasets import load_peptides
 from graph_mamba import GPSModel
 import torch
-import tqdm
+from tqdm import tqdm
 
 max_nodes = 444
 max_hops = 40
