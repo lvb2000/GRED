@@ -98,8 +98,8 @@ class GMBLayer(nn.Module):
         x = self.mlp2(x)
         # Reshape back to original dimensions
         x = x.transpose(0, 1)  # Back to (seqlen, batch_size * num_nodes, hidden_dim)
-        x = x.reshape(seqlen, batch_size, num_nodes, hidden_dim)[0]
-        return x + x_skip[0]
+        x = x.reshape(seqlen, batch_size, num_nodes, hidden_dim)
+        return x[0] + x_skip[0]
 
 class Head(nn.Module):
 

@@ -3,6 +3,7 @@ import numpy as np
 from datasets import load_peptides
 from graph_mamba import GPSModel
 import torch
+import tqdm
 
 max_nodes = 444
 max_hops = 40
@@ -27,7 +28,7 @@ parser.add_argument("--weight_decay", default=0.2, type=float)
 parser.add_argument("--lr_factor", default=1., type=float)
 parser.add_argument("--name", default="peptides-func", type=str)
 parser.add_argument("--epochs", default=200, type=int)
-parser.add_argument("--batch_size", default=1, type=int)
+parser.add_argument("--batch_size", default=16, type=int)
 parser.add_argument("--warmup", default=0.05, type=float)
 parser.add_argument("--seed", default=0, type=int)
 parser.add_argument("--gpu", default="0", type=str)
@@ -94,9 +95,9 @@ def main():
 
     for e in range(args.epochs):
         epoch_loss = 0.0
-        # shuffle all training samples by indices
-        train_indices = np.random.permutation(train_size)
-        for s in range(train_steps_per_epoch):
+        # shuffle all training samples (graphs) by indices
+        train_indices = np.random.permutation(train_size)        
+        for s in tqdm(range(train_steps_per_epoch),desc="Epoch Progress"):
             # go over all training samples with batches
             batch_indices = train_indices[s * args.batch_size:(s + 1) * args.batch_size]
             dist_mask = np.zeros((len(batch_indices), max_hops, max_nodes, max_nodes), dtype=np.bool_)
