@@ -28,7 +28,7 @@ parser.add_argument("--weight_decay", default=0.2, type=float)
 parser.add_argument("--lr_factor", default=1., type=float)
 parser.add_argument("--name", default="peptides-func", type=str)
 parser.add_argument("--epochs", default=200, type=int)
-parser.add_argument("--batch_size", default=16, type=int)
+parser.add_argument("--batch_size", default=1, type=int)
 parser.add_argument("--warmup", default=0.05, type=float)
 parser.add_argument("--seed", default=0, type=int)
 parser.add_argument("--gpu", default="0", type=str)
@@ -74,6 +74,8 @@ def main():
     
     model = GPSModel(train_set[0]["x"].shape[-1], args.dim_h,10).to(device)
 
+    batch_accumulation = 10
+
     train_size = train_set[0]["x"].shape[0]
     train_steps_per_epoch = train_size // args.batch_size
     train_steps_total = train_steps_per_epoch * args.epochs
@@ -113,12 +115,14 @@ def main():
             
             loss, pred_score = compute_loss(pred_batch, y_batch)
             loss.backward()
-            torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
-            optimizer.step()
-            optimizer.zero_grad()
-
             # Accumulate loss for this epoch
             epoch_loss += loss.item()
+
+            if ((s + 1) % batch_accumulation == 0) or (s + 1 == train_steps_per_epoch):
+                torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
+                optimizer.step()
+                optimizer.zero_grad()
+
         
         # Calculate and print average loss for this epoch
         avg_epoch_loss = epoch_loss / train_steps_per_epoch
