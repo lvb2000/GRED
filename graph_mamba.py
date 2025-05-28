@@ -59,6 +59,7 @@ def sumNodeFeatures(distance_masks,node_features,graph_labels):
     print(f"distance_masks shape: {distance_masks.shape}")
     aggregated_features = torch.transpose(distance_masks, 0, 1) @ dense_features
     print(f"aggregated_features (before mask) shape: {aggregated_features.shape}")
+    mask = mask.unsqueeze(0).unsqueeze(-1)
     # Apply mask to the second dimension (nodes) of aggregated_features
     aggregated_features = aggregated_features[mask]
     print(f"aggregated_features (after mask) shape: {aggregated_features.shape}")
