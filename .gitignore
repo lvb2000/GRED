@@ -2,3 +2,5 @@ data/
 log/
 *.pyc
 mamba.py
+wandb/
+TimeComplexity/

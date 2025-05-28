@@ -1,6 +1,6 @@
 import wandb
 
-def LoggerInit(device,batch_accumulation):
+def LoggerInit(device,args):
     wandb.init(
       # Set the project where this run will be logged
       project="GRED-Mamba",
@@ -12,7 +12,12 @@ def LoggerInit(device,batch_accumulation):
       "dataset": "Peptides-functional",
       "epochs": 200,
       "device": device,
-      "batch_accumulation": batch_accumulation
+      "base_lr": args.base_lr,
+      "batch_accumulation": args.batch_accumulation,
+      "max_hops": args.max_hops,
+      "num_hops":args.num_hops,
+      "batch_size": args.batch_size,
+      "weight_decay": args.weight_decay
     })
 
 def LoggerUpdate(loss,ap_per_class,ap,epoch,type="train"):

@@ -51,9 +51,38 @@ class MLP2(nn.Module):
         x = self.dropout(x)
         return x
 
-def sumNodeFeatures(distance_masks,node_features):
-    distance_masks = distance_masks.float()
-    return torch.transpose(distance_masks, 0, 1) @ node_features
+def sumNodeFeatures(distance_masks,node_features,graph_labels):
+    try:
+        dense_features, mask = to_dense_batch(node_features, graph_labels)
+        distance_masks = distance_masks.float()
+        aggregated_features = torch.transpose(distance_masks, 0, 1) @ dense_features
+        # Apply mask to the second dimension (nodes) of aggregated_features
+        aggregated_features = aggregated_features[:, mask, :]
+        return aggregated_features
+    except Exception as e:
+        print("Exception in sumNodeFeatures:", e)
+        print("distance_masks shape:", distance_masks.shape)
+        print("node_features shape:", node_features.shape)
+        print("graph_labels shape:", graph_labels.shape)
+        try:
+            dense_features, mask = to_dense_batch(node_features, graph_labels)
+            print("dense_features shape:", dense_features.shape)
+            print("mask shape:", mask.shape)
+        except Exception as e2:
+            print("Exception during to_dense_batch:", e2)
+        try:
+            distance_masks_f = distance_masks.float()
+            print("distance_masks (after float) shape:", distance_masks_f.shape)
+        except Exception as e3:
+            print("Exception during distance_masks.float():", e3)
+        try:
+            aggregated_features = torch.transpose(distance_masks.float(), 0, 1) @ dense_features
+            print("aggregated_features (before masking) shape:", aggregated_features.shape)
+            aggregated_features = aggregated_features[:, mask, :]
+            print("aggregated_features (after masking) shape:", aggregated_features.shape)
+        except Exception as e4:
+            print("Exception during aggregation:", e4)
+        raise
 
 
 # Graph Mamba Layer
@@ -82,47 +111,20 @@ class GMBLayer(nn.Module):
         # MLP
         self.mlp2 = MLP2(dim_hidden, drop_rate, act)
 
-    def forward(self, inputs, dist_masks, node_masks):
+    def forward(self, inputs, dist_masks, graph_labels):
         #----------- Node multiset aggregation -----------#
-        h = self.sum(dist_masks,inputs)
+        h = self.sum(dist_masks,inputs,graph_labels)
         # x represents the hidden state after aggregation
         x_skip = self.mlp1(h)
         #----------- Mamba block from Graph-Mamba paper -----------#
-        # Expand node_masks to match inputs shape for masking
-        # Compute graph_label: a 1D vector where each entry indicates the graph index (batch) for each real node
-        # Count number of real nodes per graph in the batch
-        real_nodes_per_graph = node_masks.sum(dim=1).to(torch.long)  # (batch_size,)
-        # For each graph, repeat its index for the number of real nodes it has
-        graph_label = torch.cat([
-            torch.full((n.item(),), i, dtype=torch.long, device=node_masks.device)
-            for i, n in enumerate(real_nodes_per_graph)
-        ], dim=0) # (total_real_nodes,)
-        # Combine batch and graph dimension of node_masks
-        node_masks_flat = node_masks.reshape(-1)  # (batch_size * num_nodes,)
-        node_masks_expanded = node_masks.unsqueeze(-1)  # (1, batch_size, num_nodes, 1) # Mask out padded nodes
-        #seqlen, batch_size, num_nodes, hidden_dim = x_skip.shape
-        # remove padded nodes
-        seqlen, batch_size, num_nodes, hidden_dim = x_skip.shape
-        x = x_skip.reshape(seqlen, batch_size * num_nodes, hidden_dim)
-        x = x[:, node_masks_flat.bool(), :]
-        # Reshape to (batch_size, seqlen * num_nodes, hidden_dim)
-        #x = x_skip.reshape(seqlen, batch_size * num_nodes, hidden_dim)
         # Transpose to (batch_size * num_nodes, seqlen, hidden_dim)
-        x = x.transpose(0, 1)
+        x = h.transpose(0, 1)
         x = self.layer_norm(x)
         x = self.self_attn(x)
         x = self.mlp2(x)
         # Reshape back to original dimensions
         x = x.transpose(0, 1)  # Back to (seqlen, batch_size * num_nodes, hidden_dim)
-        x = x[0]
-        x, _ = to_dense_batch(x, graph_label)
-        # Pad x to size 444 in graph dim=1
-        if x.shape[1] < 444:
-            pad_size = 444 - x.shape[1]
-            pad = (0, 0, 0, pad_size)  # (last two dims: (left, right) for each dimension)
-            x = torch.nn.functional.pad(x, pad)
-        #x = x.reshape(seqlen, batch_size, num_nodes, hidden_dim)
-        return x + x_skip[0]
+        return x[0] + x_skip[0]
 
 class Head(nn.Module):
 
@@ -134,8 +136,8 @@ class Head(nn.Module):
         self.linear1 = nn.Linear(dim_hidden, dim_hidden)
         self.linear2 = nn.Linear(dim_hidden, dim_output)
 
-    def forward(self, input, node_masks):
-        x = torch.where(node_masks.unsqueeze(-1), input, 0.)
+    def forward(self, input, graph_labels):
+        x , _ = to_dense_batch(input, graph_labels)
         # aggregating node features -> only "one" graph node left
         x = torch.sum(x, dim=1)
         # task head for prediction
@@ -147,7 +149,8 @@ full_atom_feature_dims = [119, 5, 12, 12, 10, 6, 6, 2, 2]
 full_bond_feature_dims = [5, 6, 2]
     
 class GPSModel(nn.Module):
-    """Multi-scale graph x-former.
+    """
+    Multi-scale graph x-former.
     """
 
     def __init__(self, node_feature_dim, dim_hidden, dim_out):
@@ -170,16 +173,16 @@ class GPSModel(nn.Module):
         #----------- Graph Predicition Head -----------#
         self.head = Head(dim_hidden, dim_out)
 
-    def forward(self, inputs, node_mask, dist_mask):
+    def forward(self, inputs, dist_mask, device):
         #----------- Node feature Encoder -----------#
         # Initialize x as zeros
         # Shape: [batch_size, num_nodes, dim_hidden]
-        x = torch.zeros(inputs.shape[0], inputs.shape[1], self.dim_hidden, device=inputs.device)
+        x = torch.zeros(inputs.x.shape[0], self.dim_hidden, device=device)
         
         # Iterate through each feature dimension
-        for i in range(inputs.shape[-1]):
+        for i in range(inputs.x.shape[-1]):
             # Get the current feature
-            current_feature = inputs[..., i]
+            current_feature = inputs.x[..., i]
             # Convert to long type for embedding
             current_feature = current_feature.long()
             # Get embedding for this feature
@@ -191,9 +194,9 @@ class GPSModel(nn.Module):
         
         #----------- Modified Graph Mamba Layer -----------#
         for layer in self.layers:
-            x = layer(x, dist_mask, node_mask)
+            x = layer(x, dist_mask, inputs.batch)
         
         #----------- Graph Predicition Head -----------#
-        x = self.head(x, node_mask)
+        x = self.head(x, inputs.batch)
         return x
             
