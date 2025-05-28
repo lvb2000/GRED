@@ -7,8 +7,6 @@ from tqdm import tqdm
 import logger as log
 from sklearn.metrics import average_precision_score
 
-max_nodes = 444
-
 parser = argparse.ArgumentParser()
 #* model hyper-params
 parser.add_argument("--num_layers", default=8, type=int)
@@ -112,6 +110,8 @@ def main():
             batch_indices = train_indices[s * args.batch_size:(s + 1) * args.batch_size]
             # Calculate the max hops in the current batch
             max_hops = max(train_set[1][idx].shape[0] for idx in batch_indices)
+            # Calculate the largest number of nodes in the current batch
+            max_nodes = max(train_set[0]["x"][idx].shape[0] for idx in batch_indices)
             dist_mask = np.zeros((len(batch_indices), max_hops, max_nodes, max_nodes), dtype=np.bool_)
             for i, idx in enumerate(batch_indices):
                 # build up full distance mask for every graph in current batch
