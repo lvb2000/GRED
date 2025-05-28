@@ -77,7 +77,7 @@ def create_graph_labels(nodes):
 def main():
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     print(f"Using device: {device}")
-    #log.LoggerInit(device,args)
+    log.LoggerInit(device,args)
     # train_set[0] = train_xy, train_set[1] = train_distances
     train_set, val_set, test_set = load_peptides(args.name)
     
@@ -160,18 +160,22 @@ def main():
         with torch.no_grad():
             for s in range(val_steps):
                 batch_indices = val_indices[s * args.batch_size:(s + 1) * args.batch_size]
+                # Calculate the max hops in the current batch
+                max_hops = max(train_set[1][idx].shape[0] for idx in batch_indices)
+                # Calculate the largest number of nodes in the current batch
+                max_nodes = max(train_set[0]["x"][idx].shape[0] for idx in batch_indices)
                 dist_mask = np.zeros((len(batch_indices), max_hops, max_nodes, max_nodes), dtype=np.bool_)
                 for i, idx in enumerate(batch_indices):
                     dist_mask[i, :val_set[1][idx].shape[0], :val_set[1][idx].shape[1], :val_set[1][idx].shape[2]] = val_set[1][idx]
+                graph_labels_batch = torch.from_numpy(create_graph_labels(train_set[0]["x"][batch_indices])).to(device)
                 x_batch = torch.from_numpy(val_set[0]["x"][batch_indices]).to(device)
                 y_batch = torch.from_numpy(val_set[0]["y"][batch_indices]).to(device)
-                node_mask_batch = torch.from_numpy(val_set[0]["node_mask"][batch_indices]).to(device)
                 dist_mask_batch = torch.from_numpy(dist_mask).to(device)
                 if not args.max_hops:
                     dist_mask_batch = torch.from_numpy(dist_mask[:, :args.num_hops]).to(device)
                 
                 # predict
-                pred_batch = model(x_batch,node_mask_batch,dist_mask_batch)
+                pred_batch = model(x_batch,graph_labels_batch,dist_mask_batch)
 
                 loss, pred_score = compute_loss(pred_batch, y_batch)
                 _true = y_batch.detach().cpu().numpy()

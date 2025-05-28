@@ -53,15 +53,10 @@ class MLP2(nn.Module):
 
 def sumNodeFeatures(distance_masks,node_features,graph_labels):
     dense_features, mask = to_dense_batch(node_features, graph_labels)
-    print(f"dense_features shape: {dense_features.shape}")
-    print(f"mask shape: {mask.shape}")
     distance_masks = distance_masks.float()
-    print(f"distance_masks shape: {distance_masks.shape}")
     aggregated_features = torch.transpose(distance_masks, 0, 1) @ dense_features
-    print(f"aggregated_features (before mask) shape: {aggregated_features.shape}")
     # Apply mask to the second dimension (nodes) of aggregated_features
     aggregated_features = aggregated_features[:,mask,:]
-    print(f"aggregated_features (after mask) shape: {aggregated_features.shape}")
     return aggregated_features
 
 
@@ -93,29 +88,17 @@ class GMBLayer(nn.Module):
 
     def forward(self, inputs, dist_masks, graph_labels):
         #----------- Node multiset aggregation -----------#
-        print(f"inputs shape: {inputs.shape}")
-        print(f"dist_masks shape: {dist_masks.shape}")
-        print(f"graph_labels shape: {graph_labels.shape if hasattr(graph_labels, 'shape') else type(graph_labels)}")
         h = self.sum(dist_masks,inputs,graph_labels)
-        print(f"h (after sumNodeFeatures) shape: {h.shape}")
         # x represents the hidden state after aggregation
         x_skip = self.mlp1(h)
-        print(f"x_skip (after mlp1) shape: {x_skip.shape}")
         #----------- Mamba block from Graph-Mamba paper -----------#
         # Transpose to (batch_size * num_nodes, seqlen, hidden_dim)
         x = h.transpose(0, 1)
-        print(f"x (after transpose) shape: {x.shape}")
         x = self.layer_norm(x)
-        print(f"x (after layer_norm) shape: {x.shape}")
         x = self.self_attn(x)
-        print(f"x (after self_attn) shape: {x.shape}")
         x = self.mlp2(x)
-        print(f"x (after mlp2) shape: {x.shape}")
         # Reshape back to original dimensions
         x = x.transpose(0, 1)  # Back to (seqlen, batch_size * num_nodes, hidden_dim)
-        print(f"x (after transpose back) shape: {x.shape}")
-        print(f"x[0] shape: {x[0].shape}")
-        print(f"x_skip[0] shape: {x_skip[0].shape}")
         return x[0] + x_skip[0]
 
 class Head(nn.Module):
