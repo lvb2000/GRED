@@ -38,11 +38,11 @@ def load_zinc():
 
 def load_peptides(name):
     assert(name in ['peptides-struct', 'peptides-func'])
-    train_xy = np.load(f'./data/{name}/train.npz')
+    train_xy = np.load(f'./data/{name}/train.npz', allow_pickle=True)
     train_dist_mask = pickle.load(open(f'./data/{name}/train_dist_mask.pkl', 'rb'))
-    val_xy = np.load(f'./data/{name}/val.npz')
+    val_xy = np.load(f'./data/{name}/val.npz', allow_pickle=True)
     val_dist_mask = pickle.load(open(f'./data/{name}/val_dist_mask.pkl', 'rb'))
-    test_xy = np.load(f'./data/{name}/test.npz')
+    test_xy = np.load(f'./data/{name}/test.npz', allow_pickle=True)
     test_dist_mask = pickle.load(open(f'./data/{name}/test_dist_mask.pkl', 'rb'))
     return (train_xy, train_dist_mask), (val_xy, val_dist_mask), (test_xy, test_dist_mask)
 

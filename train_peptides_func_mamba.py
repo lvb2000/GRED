@@ -8,12 +8,12 @@ import logger as log
 from sklearn.metrics import average_precision_score
 
 max_nodes = 444
-max_hops = 40
 
 parser = argparse.ArgumentParser()
 #* model hyper-params
 parser.add_argument("--num_layers", default=8, type=int)
-parser.add_argument("--num_hops", default=40, type=int)
+parser.add_argument("--max_hops", default=False,type=bool)
+parser.add_argument("--num_hops", default=100, type=int)
 parser.add_argument("--dim_h", default=88, type=int)
 parser.add_argument("--dim_v", default=88, type=int)
 parser.add_argument("--r_min", default=0.95, type=float)
@@ -24,6 +24,8 @@ parser.add_argument("--expand", default=1, type=int)
 parser.add_argument("--act", default="full-glu", type=str)
 
 #* training hyper-params
+parser.add_argument("--batch_accumulation", default=10, type=int)
+parser.add_argument("--base_lr", default=0.001, type=int)
 parser.add_argument("--lr_min", default=1e-7, type=float)
 parser.add_argument("--lr_max", default=1e-3, type=float)
 parser.add_argument("--weight_decay", default=0.2, type=float)
@@ -67,30 +69,31 @@ def compute_loss(pred, true):
     else:
         true = true.float()
         return bce_loss(pred, true), torch.sigmoid(pred)
+    
+def create_graph_labels(nodes):
+    graph_labels = []
+    for i in range(len(nodes)):
+        graph_labels.append(i * np.ones(len(nodes[i]), dtype=np.int64))
+    return np.hstack(graph_labels)
 
 def main():
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     print(f"Using device: {device}")
-    batch_accumulation = 4
-    log.LoggerInit(device,batch_accumulation)
+    #log.LoggerInit(device,args)
     # train_set[0] = train_xy, train_set[1] = train_distances
     train_set, val_set, test_set = load_peptides(args.name)
     
-    model = GPSModel(train_set[0]["x"].shape[-1], args.dim_h,10).to(device)
+    model = GPSModel(train_set[0]["x"][0].shape[-1], args.dim_h,10).to(device)
 
-    train_size = train_set[0]["x"].shape[0]
+    train_size = len(train_set[0]["x"])
     train_steps_per_epoch = train_size // args.batch_size
-    train_steps_total = train_steps_per_epoch * args.epochs
 
-    val_size = val_set[0]["x"].shape[0]
+    val_size = len(val_set[0]["x"])
     val_steps = (val_size - 1) // args.batch_size + 1
 
-    test_size = test_set[0]["x"].shape[0]
-    test_steps = (test_size - 1) // args.batch_size + 1
-
     model.train()
-    base_lr = 0.001
-    weight_decay = 0.01
+    base_lr = args.base_lr
+    weight_decay = args.weight_decay
     print(f"Optimizer settings:")
     print(f"Learning rate: {base_lr}")
     print(f"Weight decay: {weight_decay}")
@@ -107,21 +110,25 @@ def main():
         for s in range(train_steps_per_epoch):
             # go over all training samples with batches
             batch_indices = train_indices[s * args.batch_size:(s + 1) * args.batch_size]
+            # Calculate the max hops in the current batch
+            max_hops = max(train_set[1][idx].shape[0] for idx in batch_indices)
             dist_mask = np.zeros((len(batch_indices), max_hops, max_nodes, max_nodes), dtype=np.bool_)
             for i, idx in enumerate(batch_indices):
                 # build up full distance mask for every graph in current batch
                 dist_mask[i, :train_set[1][idx].shape[0], :train_set[1][idx].shape[1], :train_set[1][idx].shape[2]] = train_set[1][idx]
-            x_batch = torch.from_numpy(train_set[0]["x"][batch_indices]).to(device)
+            graph_labels_batch = torch.from_numpy(create_graph_labels(train_set[0]["x"][batch_indices])).to(device)
+            x_batch = torch.from_numpy(np.vstack(train_set[0]["x"][batch_indices])).to(device)
             y_batch = torch.from_numpy(train_set[0]["y"][batch_indices]).to(device)
-            node_mask_batch = torch.from_numpy(train_set[0]["node_mask"][batch_indices]).to(device)
-            dist_mask_batch = torch.from_numpy(dist_mask[:, :args.num_hops]).to(device)
+            dist_mask_batch = torch.from_numpy(dist_mask).to(device)
+            if not args.max_hops:
+                dist_mask_batch = torch.from_numpy(dist_mask[:, :args.num_hops]).to(device)
             # predict
-            pred_batch = model(x_batch,node_mask_batch,dist_mask_batch)
+            pred_batch = model(x_batch,graph_labels_batch,dist_mask_batch)
             
             loss, pred_score = compute_loss(pred_batch, y_batch)
             loss.backward()
 
-            if ((s + 1) % batch_accumulation == 0) or (s + 1 == train_steps_per_epoch):
+            if ((s + 1) % args.batch_accumulation == 0) or (s + 1 == train_steps_per_epoch):
                 torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
                 optimizer.step()
                 optimizer.zero_grad()
@@ -159,7 +166,9 @@ def main():
                 x_batch = torch.from_numpy(val_set[0]["x"][batch_indices]).to(device)
                 y_batch = torch.from_numpy(val_set[0]["y"][batch_indices]).to(device)
                 node_mask_batch = torch.from_numpy(val_set[0]["node_mask"][batch_indices]).to(device)
-                dist_mask_batch = torch.from_numpy(dist_mask[:, :args.num_hops]).to(device)
+                dist_mask_batch = torch.from_numpy(dist_mask).to(device)
+                if not args.max_hops:
+                    dist_mask_batch = torch.from_numpy(dist_mask[:, :args.num_hops]).to(device)
                 
                 # predict
                 pred_batch = model(x_batch,node_mask_batch,dist_mask_batch)

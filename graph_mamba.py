@@ -51,9 +51,13 @@ class MLP2(nn.Module):
         x = self.dropout(x)
         return x
 
-def sumNodeFeatures(distance_masks,node_features):
+def sumNodeFeatures(distance_masks,node_features,graph_labels):
+    dense_features, mask = to_dense_batch(node_features, graph_labels)
     distance_masks = distance_masks.float()
-    return torch.transpose(distance_masks, 0, 1) @ node_features
+    aggregated_features = torch.transpose(distance_masks, 0, 1) @ dense_features
+    # Apply mask to the second dimension (nodes) of aggregated_features
+    aggregated_features = aggregated_features[mask]
+    return aggregated_features
 
 
 # Graph Mamba Layer
@@ -114,15 +118,7 @@ class GMBLayer(nn.Module):
         x = self.mlp2(x)
         # Reshape back to original dimensions
         x = x.transpose(0, 1)  # Back to (seqlen, batch_size * num_nodes, hidden_dim)
-        x = x[0]
-        x, _ = to_dense_batch(x, graph_label)
-        # Pad x to size 444 in graph dim=1
-        if x.shape[1] < 444:
-            pad_size = 444 - x.shape[1]
-            pad = (0, 0, 0, pad_size)  # (last two dims: (left, right) for each dimension)
-            x = torch.nn.functional.pad(x, pad)
-        #x = x.reshape(seqlen, batch_size, num_nodes, hidden_dim)
-        return x + x_skip[0]
+        return x[0] + x_skip[0]
 
 class Head(nn.Module):
 
@@ -134,8 +130,8 @@ class Head(nn.Module):
         self.linear1 = nn.Linear(dim_hidden, dim_hidden)
         self.linear2 = nn.Linear(dim_hidden, dim_output)
 
-    def forward(self, input, node_masks):
-        x = torch.where(node_masks.unsqueeze(-1), input, 0.)
+    def forward(self, input, graph_labels):
+        x , _ = to_dense_batch(input, graph_labels)
         # aggregating node features -> only "one" graph node left
         x = torch.sum(x, dim=1)
         # task head for prediction
@@ -170,7 +166,7 @@ class GPSModel(nn.Module):
         #----------- Graph Predicition Head -----------#
         self.head = Head(dim_hidden, dim_out)
 
-    def forward(self, inputs, node_mask, dist_mask):
+    def forward(self, inputs, graph_labels, dist_mask):
         #----------- Node feature Encoder -----------#
         # Initialize x as zeros
         # Shape: [batch_size, num_nodes, dim_hidden]
@@ -191,9 +187,9 @@ class GPSModel(nn.Module):
         
         #----------- Modified Graph Mamba Layer -----------#
         for layer in self.layers:
-            x = layer(x, dist_mask, node_mask)
+            x = layer(x, dist_mask, graph_labels)
         
         #----------- Graph Predicition Head -----------#
-        x = self.head(x, node_mask)
+        x = self.head(x, graph_labels)
         return x
             
