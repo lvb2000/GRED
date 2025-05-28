@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
-#from mamba import Mamba,ModelArgs
-from mamba_ssm import Mamba
+from mamba import Mamba,ModelArgs
+#from mamba_ssm import Mamba
 from torch_geometric.utils import to_dense_batch
 
 class MLP1(nn.Module):
@@ -53,10 +53,15 @@ class MLP2(nn.Module):
 
 def sumNodeFeatures(distance_masks,node_features,graph_labels):
     dense_features, mask = to_dense_batch(node_features, graph_labels)
+    print(f"dense_features shape: {dense_features.shape}")
+    print(f"mask shape: {mask.shape}")
     distance_masks = distance_masks.float()
+    print(f"distance_masks shape: {distance_masks.shape}")
     aggregated_features = torch.transpose(distance_masks, 0, 1) @ dense_features
+    print(f"aggregated_features (before mask) shape: {aggregated_features.shape}")
     # Apply mask to the second dimension (nodes) of aggregated_features
     aggregated_features = aggregated_features[mask]
+    print(f"aggregated_features (after mask) shape: {aggregated_features.shape}")
     return aggregated_features
 
 
@@ -80,44 +85,37 @@ class GMBLayer(nn.Module):
         # Norm
         self.layer_norm = nn.LayerNorm(dim_hidden)
         # Mamba
-        #model_args = ModelArgs(d_model=dim_hidden,n_layer=4,d_state=d_state, d_conv=d_conv,expand=1)
-        #self.self_attn = Mamba(model_args)
-        self.self_attn = Mamba(d_model=dim_hidden, d_state=16, d_conv=4, expand=1)
+        model_args = ModelArgs(d_model=dim_hidden,n_layer=4,d_state=d_state, d_conv=d_conv,expand=1)
+        self.self_attn = Mamba(model_args)
+        #self.self_attn = Mamba(d_model=dim_hidden, d_state=16, d_conv=4, expand=1)
         # MLP
         self.mlp2 = MLP2(dim_hidden, drop_rate, act)
 
-    def forward(self, inputs, dist_masks, node_masks):
+    def forward(self, inputs, dist_masks, graph_labels):
         #----------- Node multiset aggregation -----------#
-        h = self.sum(dist_masks,inputs)
+        print(f"inputs shape: {inputs.shape}")
+        print(f"dist_masks shape: {dist_masks.shape}")
+        print(f"graph_labels shape: {graph_labels.shape if hasattr(graph_labels, 'shape') else type(graph_labels)}")
+        h = self.sum(dist_masks,inputs,graph_labels)
+        print(f"h (after sumNodeFeatures) shape: {h.shape}")
         # x represents the hidden state after aggregation
         x_skip = self.mlp1(h)
+        print(f"x_skip (after mlp1) shape: {x_skip.shape}")
         #----------- Mamba block from Graph-Mamba paper -----------#
-        # Expand node_masks to match inputs shape for masking
-        # Compute graph_label: a 1D vector where each entry indicates the graph index (batch) for each real node
-        # Count number of real nodes per graph in the batch
-        real_nodes_per_graph = node_masks.sum(dim=1).to(torch.long)  # (batch_size,)
-        # For each graph, repeat its index for the number of real nodes it has
-        graph_label = torch.cat([
-            torch.full((n.item(),), i, dtype=torch.long, device=node_masks.device)
-            for i, n in enumerate(real_nodes_per_graph)
-        ], dim=0) # (total_real_nodes,)
-        # Combine batch and graph dimension of node_masks
-        node_masks_flat = node_masks.reshape(-1)  # (batch_size * num_nodes,)
-        node_masks_expanded = node_masks.unsqueeze(-1)  # (1, batch_size, num_nodes, 1) # Mask out padded nodes
-        #seqlen, batch_size, num_nodes, hidden_dim = x_skip.shape
-        # remove padded nodes
-        seqlen, batch_size, num_nodes, hidden_dim = x_skip.shape
-        x = x_skip.reshape(seqlen, batch_size * num_nodes, hidden_dim)
-        x = x[:, node_masks_flat.bool(), :]
-        # Reshape to (batch_size, seqlen * num_nodes, hidden_dim)
-        #x = x_skip.reshape(seqlen, batch_size * num_nodes, hidden_dim)
         # Transpose to (batch_size * num_nodes, seqlen, hidden_dim)
-        x = x.transpose(0, 1)
+        x = h.transpose(0, 1)
+        print(f"x (after transpose) shape: {x.shape}")
         x = self.layer_norm(x)
+        print(f"x (after layer_norm) shape: {x.shape}")
         x = self.self_attn(x)
+        print(f"x (after self_attn) shape: {x.shape}")
         x = self.mlp2(x)
+        print(f"x (after mlp2) shape: {x.shape}")
         # Reshape back to original dimensions
         x = x.transpose(0, 1)  # Back to (seqlen, batch_size * num_nodes, hidden_dim)
+        print(f"x (after transpose back) shape: {x.shape}")
+        print(f"x[0] shape: {x[0].shape}")
+        print(f"x_skip[0] shape: {x_skip[0].shape}")
         return x[0] + x_skip[0]
 
 class Head(nn.Module):
