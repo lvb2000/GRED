@@ -161,9 +161,9 @@ def main():
             for s in range(val_steps):
                 batch_indices = val_indices[s * args.batch_size:(s + 1) * args.batch_size]
                 # Calculate the max hops in the current batch
-                max_hops = max(train_set[1][idx].shape[0] for idx in batch_indices)
+                max_hops = max(val_set[1][idx].shape[0] for idx in batch_indices)
                 # Calculate the largest number of nodes in the current batch
-                max_nodes = max(train_set[0]["x"][idx].shape[0] for idx in batch_indices)
+                max_nodes = max(val_set[0]["x"][idx].shape[0] for idx in batch_indices)
                 dist_mask = np.zeros((len(batch_indices), max_hops, max_nodes, max_nodes), dtype=np.bool_)
                 for i, idx in enumerate(batch_indices):
                     dist_mask[i, :val_set[1][idx].shape[0], :val_set[1][idx].shape[1], :val_set[1][idx].shape[2]] = val_set[1][idx]
