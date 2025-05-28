@@ -13,7 +13,8 @@ def LoggerInit(device,args):
       "epochs": 200,
       "device": device,
       "batch_accumulation": args.batch_accumulation,
-      "max_hops": args.max_hops
+      "max_hops": args.max_hops,
+      "batch_size": args.batch_size
     })
 
 def LoggerUpdate(loss,ap_per_class,ap,epoch,type="train"):
