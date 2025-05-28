@@ -168,7 +168,7 @@ class GPSModel(nn.Module):
         #----------- Node feature Encoder -----------#
         # Initialize x as zeros
         # Shape: [batch_size, num_nodes, dim_hidden]
-        x = torch.zeros(inputs.shape[0], inputs.shape[1], self.dim_hidden, device=inputs.device)
+        x = torch.zeros(inputs.shape[0], self.dim_hidden, device=inputs.device)
         
         # Iterate through each feature dimension
         for i in range(inputs.shape[-1]):
