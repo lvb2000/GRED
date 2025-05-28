@@ -167,8 +167,8 @@ def main():
                 dist_mask = np.zeros((len(batch_indices), max_hops, max_nodes, max_nodes), dtype=np.bool_)
                 for i, idx in enumerate(batch_indices):
                     dist_mask[i, :val_set[1][idx].shape[0], :val_set[1][idx].shape[1], :val_set[1][idx].shape[2]] = val_set[1][idx]
-                graph_labels_batch = torch.from_numpy(create_graph_labels(train_set[0]["x"][batch_indices])).to(device)
-                x_batch = torch.from_numpy(np.vstack(train_set[0]["x"][batch_indices])).to(device)
+                graph_labels_batch = torch.from_numpy(create_graph_labels(val_set[0]["x"][batch_indices])).to(device)
+                x_batch = torch.from_numpy(np.vstack(val_set[0]["x"][batch_indices])).to(device)
                 y_batch = torch.from_numpy(val_set[0]["y"][batch_indices]).to(device)
                 dist_mask_batch = torch.from_numpy(dist_mask).to(device)
                 if not args.max_hops:
