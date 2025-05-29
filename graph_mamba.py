@@ -52,11 +52,24 @@ class MLP2(nn.Module):
         return x
 
 def sumNodeFeatures(distance_masks,node_features,graph_labels):
+    print("distance_masks shape:", distance_masks.shape)
+    print("node_features shape:", node_features.shape)
+    print("graph_labels shape:", graph_labels.shape)
     dense_features, mask = to_dense_batch(node_features, graph_labels)
+    print("dense_features shape:", dense_features.shape)
+    print("mask shape:", mask.shape)
     distance_masks = distance_masks.float()
+    print("distance_masks (after float) shape:", distance_masks.shape)
     aggregated_features = torch.transpose(distance_masks, 0, 1) @ dense_features
+    print("aggregated_features (before masking) shape:", aggregated_features.shape)
     # Apply mask to the second dimension (nodes) of aggregated_features
     aggregated_features = aggregated_features[:,mask,:]
+    print("aggregated_features (after masking) shape:", aggregated_features.shape)
+    #dense_features, mask = to_dense_batch(node_features, graph_labels)
+    #distance_masks = distance_masks.float()
+    #aggregated_features = torch.transpose(distance_masks, 0, 1) @ dense_features
+    # Apply mask to the second dimension (nodes) of aggregated_features
+    #aggregated_features = aggregated_features[:,mask,:]
     return aggregated_features
 
 
