@@ -52,25 +52,37 @@ class MLP2(nn.Module):
         return x
 
 def sumNodeFeatures(distance_masks,node_features,graph_labels):
-    print("distance_masks shape:", distance_masks.shape)
-    print("node_features shape:", node_features.shape)
-    print("graph_labels shape:", graph_labels.shape)
-    dense_features, mask = to_dense_batch(node_features, graph_labels)
-    print("dense_features shape:", dense_features.shape)
-    print("mask shape:", mask.shape)
-    distance_masks = distance_masks.float()
-    print("distance_masks (after float) shape:", distance_masks.shape)
-    aggregated_features = torch.transpose(distance_masks, 0, 1) @ dense_features
-    print("aggregated_features (before masking) shape:", aggregated_features.shape)
-    # Apply mask to the second dimension (nodes) of aggregated_features
-    aggregated_features = aggregated_features[:,mask,:]
-    print("aggregated_features (after masking) shape:", aggregated_features.shape)
-    #dense_features, mask = to_dense_batch(node_features, graph_labels)
-    #distance_masks = distance_masks.float()
-    #aggregated_features = torch.transpose(distance_masks, 0, 1) @ dense_features
-    # Apply mask to the second dimension (nodes) of aggregated_features
-    #aggregated_features = aggregated_features[:,mask,:]
-    return aggregated_features
+    try:
+        dense_features, mask = to_dense_batch(node_features, graph_labels)
+        distance_masks = distance_masks.float()
+        aggregated_features = torch.transpose(distance_masks, 0, 1) @ dense_features
+        # Apply mask to the second dimension (nodes) of aggregated_features
+        aggregated_features = aggregated_features[:, mask, :]
+        return aggregated_features
+    except Exception as e:
+        print("Exception in sumNodeFeatures:", e)
+        print("distance_masks shape:", distance_masks.shape)
+        print("node_features shape:", node_features.shape)
+        print("graph_labels shape:", graph_labels.shape)
+        try:
+            dense_features, mask = to_dense_batch(node_features, graph_labels)
+            print("dense_features shape:", dense_features.shape)
+            print("mask shape:", mask.shape)
+        except Exception as e2:
+            print("Exception during to_dense_batch:", e2)
+        try:
+            distance_masks_f = distance_masks.float()
+            print("distance_masks (after float) shape:", distance_masks_f.shape)
+        except Exception as e3:
+            print("Exception during distance_masks.float():", e3)
+        try:
+            aggregated_features = torch.transpose(distance_masks.float(), 0, 1) @ dense_features
+            print("aggregated_features (before masking) shape:", aggregated_features.shape)
+            aggregated_features = aggregated_features[:, mask, :]
+            print("aggregated_features (after masking) shape:", aggregated_features.shape)
+        except Exception as e4:
+            print("Exception during aggregation:", e4)
+        raise
 
 
 # Graph Mamba Layer
