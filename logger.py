@@ -12,6 +12,7 @@ def LoggerInit(device,args):
       "dataset": "Peptides-functional",
       "epochs": 200,
       "device": device,
+      "base_lr": args.base_lr,
       "batch_accumulation": args.batch_accumulation,
       "max_hops": args.max_hops,
       "batch_size": args.batch_size
