@@ -105,7 +105,6 @@ def main():
         preds = []
         trues = []
         losses = []
-        '''
         for s in range(train_steps_per_epoch):
             # go over all training samples with batches
             batch_indices = train_indices[s * args.batch_size:(s + 1) * args.batch_size]
@@ -152,7 +151,6 @@ def main():
         losses = np.array(losses)
         mean_loss = losses.mean()
         log.LoggerUpdate(mean_loss,ap_per_class, mean_ap,e+1,type="train")
-        '''
 
         val_indices = np.arange(val_size)
         model.eval()
