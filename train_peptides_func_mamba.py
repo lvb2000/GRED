@@ -23,7 +23,7 @@ parser.add_argument("--act", default="full-glu", type=str)
 
 #* training hyper-params
 parser.add_argument("--batch_accumulation", default=10, type=int)
-parser.add_argument("--base_lr", default=0.001, type=int)
+parser.add_argument("--base_lr", default=0.001, type=float)
 parser.add_argument("--lr_min", default=1e-7, type=float)
 parser.add_argument("--lr_max", default=1e-3, type=float)
 parser.add_argument("--weight_decay", default=0.2, type=float)
@@ -37,8 +37,6 @@ parser.add_argument("--gpu", default="0", type=str)
 args = parser.parse_args()
 np.random.seed(args.seed)
 
-if args.num_hops is None:
-    args.num_hops = max_hops
 
 def compute_loss(pred, true):
     """

@@ -15,6 +15,7 @@ def LoggerInit(device,args):
       "base_lr": args.base_lr,
       "batch_accumulation": args.batch_accumulation,
       "max_hops": args.max_hops,
+      "num_hops":args.num_hops,
       "batch_size": args.batch_size
     })
 
