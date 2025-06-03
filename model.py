@@ -3,7 +3,7 @@ import jax.numpy as jnp
 import flax.linen as nn
 from flax.linen.initializers import lecun_normal, variance_scaling, normal
 from init import init_eig_magnitude, init_eig_phase, init_gamma_log
-from utils import binary_operator_diag
+from datasets.utils import binary_operator_diag
 
 recurrent_param = ["B_re", "B_im", "nu_log", "theta_log", "gamma_log"]
 no_decay_param = ["embedding", "scale", "bias"]
