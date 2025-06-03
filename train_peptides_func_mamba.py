@@ -7,6 +7,9 @@ from tqdm import tqdm
 import logger as log
 from sklearn.metrics import average_precision_score
 from torch_geometric.loader import DataLoader
+from torch.optim import Optimizer
+from torch import optim
+import math
 
 parser = argparse.ArgumentParser()
 #* model hyper-params
@@ -103,6 +106,17 @@ def create_loader():
 
     return loaders
 
+def get_cosine_schedule_with_warmup(
+        optimizer: Optimizer, num_warmup_steps: int, num_training_steps: int,
+        num_cycles: float = 0.5, last_epoch: int = -1):
+    def lr_lambda(current_step):
+        if current_step < num_warmup_steps:
+            return max(1e-6, float(current_step) / float(max(1, num_warmup_steps)))
+        progress = float(current_step - num_warmup_steps) / float(max(1, num_training_steps - num_warmup_steps))
+        return max(0.0, 0.5 * (1.0 + math.cos(math.pi * float(num_cycles) * 2.0 * progress)))
+
+    return optim.lr_scheduler.LambdaLR(optimizer, lr_lambda, last_epoch)
+
 def main():
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     print(f"Using device: {device}")
@@ -117,6 +131,7 @@ def main():
     print(f"Learning rate: {base_lr}")
     print(f"Weight decay: {weight_decay}")
     optimizer = torch.optim.AdamW(model.parameters(),lr=base_lr,weight_decay=weight_decay)
+    scheduler = get_cosine_schedule_with_warmup(optimizer=optimizer,num_warmup_steps=10,num_training_steps=args.epochs)
     optimizer.zero_grad()
 
     for e in tqdm(range(args.epochs), desc="Training"):
@@ -168,6 +183,8 @@ def main():
         losses = np.array(losses)
         mean_loss = losses.mean()
         log.LoggerUpdate(mean_loss,ap_per_class, mean_ap,e+1,type="train")
+        # update scheduler
+        scheduler.step()
 
         model.eval()
         preds = []
