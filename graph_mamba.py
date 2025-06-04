@@ -6,7 +6,7 @@ from torch_geometric.utils import to_dense_batch
 
 class MLP1(nn.Module):
 
-    def __init__(self, dim_hidden, expand = 1, drop_rate = 0.5):
+    def __init__(self, dim_hidden, expand = 1, drop_rate = 0):
         super().__init__()
         self.dim_hidden = dim_hidden
         self.expand = expand
@@ -28,7 +28,7 @@ class MLP1(nn.Module):
     
 class MLP2(nn.Module):
 
-    def __init__(self, dim_hidden, drop_rate = 0.5, act = "full-glu"):
+    def __init__(self, dim_hidden, drop_rate = 0, act = "full-glu"):
         super().__init__()
         self.dim_hidden = dim_hidden
         self.drop_rate = drop_rate
@@ -94,7 +94,7 @@ class GMBLayer(nn.Module):
         d_state: int = 16,
         d_conv: int = 4,
         expand: int = 1,
-        drop_rate: int = 0.5,
+        drop_rate: int = 0,
         act: str = "full-glu"
     ):
         super().__init__()
@@ -153,7 +153,7 @@ class GPSModel(nn.Module):
     Multi-scale graph x-former.
     """
 
-    def __init__(self, node_feature_dim, dim_hidden, dim_out):
+    def __init__(self, node_feature_dim, dim_hidden, dim_out, num_layers, drop_rate=0):
         self.dim_hidden = dim_hidden
         super().__init__()
         #----------- Node feature Encoder -----------#
@@ -167,8 +167,8 @@ class GPSModel(nn.Module):
         self.gelu = nn.GELU()
         #----------- Modified Graph Mamba Layer -----------#
         layers = []
-        for i in range(10):
-            layers.append(GMBLayer(dim_hidden))
+        for i in range(num_layers):
+            layers.append(GMBLayer(dim_hidden, drop_rate=drop_rate))
         self.layers = nn.Sequential(*layers)
         #----------- Graph Predicition Head -----------#
         self.head = Head(dim_hidden, dim_out)

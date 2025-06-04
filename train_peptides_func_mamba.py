@@ -15,26 +15,20 @@ parser = argparse.ArgumentParser()
 #* model hyper-params
 parser.add_argument("--num_layers", default=8, type=int)
 parser.add_argument("--max_hops", default=False,type=bool)
-parser.add_argument("--num_hops", default=100, type=int)
+parser.add_argument("--num_hops", default=40, type=int)
 parser.add_argument("--dim_h", default=88, type=int)
 parser.add_argument("--dim_v", default=88, type=int)
-parser.add_argument("--r_min", default=0.95, type=float)
-parser.add_argument("--r_max", default=1., type=float)
-parser.add_argument("--max_phase", default=6.28, type=float)
 parser.add_argument("--drop_rate", default=0.2, type=float)
 parser.add_argument("--expand", default=1, type=int)
 parser.add_argument("--act", default="full-glu", type=str)
 
 #* training hyper-params
-parser.add_argument("--batch_accumulation", default=10, type=int)
+parser.add_argument("--batch_accumulation", default=2, type=int)
 parser.add_argument("--base_lr", default=0.001, type=float)
-parser.add_argument("--lr_min", default=1e-7, type=float)
-parser.add_argument("--lr_max", default=1e-3, type=float)
-parser.add_argument("--weight_decay", default=0.01, type=float)
-parser.add_argument("--lr_factor", default=1., type=float)
+parser.add_argument("--weight_decay", default=0.2, type=float)
 parser.add_argument("--name", default="peptides-func", type=str)
 parser.add_argument("--epochs", default=200, type=int)
-parser.add_argument("--batch_size", default=8, type=int)
+parser.add_argument("--batch_size", default=16, type=int)
 parser.add_argument("--warmup", default=0.05, type=float)
 parser.add_argument("--seed", default=0, type=int)
 parser.add_argument("--gpu", default="0", type=str)
@@ -122,7 +116,7 @@ def main():
     print(f"Using device: {device}")
     log.LoggerInit(device,args)
     loaders = create_loader()
-    model = GPSModel(9, args.dim_h,10).to(device)
+    model = GPSModel(9, args.dim_h,10,args.num_layers,args.drop_rate).to(device)
 
     model.train()
     base_lr = args.base_lr
@@ -131,7 +125,7 @@ def main():
     print(f"Learning rate: {base_lr}")
     print(f"Weight decay: {weight_decay}")
     optimizer = torch.optim.AdamW(model.parameters(),lr=base_lr,weight_decay=weight_decay)
-    scheduler = get_cosine_schedule_with_warmup(optimizer=optimizer,num_warmup_steps=10,num_training_steps=args.epochs)
+    scheduler = get_cosine_schedule_with_warmup(optimizer=optimizer,num_warmup_steps=args.warmup*args.epochs,num_training_steps=args.epochs)
     optimizer.zero_grad()
 
     for e in tqdm(range(args.epochs), desc="Training"):
@@ -157,7 +151,7 @@ def main():
             # predict
             pred_batch = model(batch,dist_mask,device)
             
-            loss, pred_score = compute_loss(pred_batch, batch.y)
+            loss, pred_score = (1/args.batch_accumulation) * compute_loss(pred_batch, batch.y)
             loss.backward()
 
             if ((iter + 1) % args.batch_accumulation == 0) or (iter + 1 == len(loaders[0])):

@@ -17,7 +17,8 @@ def LoggerInit(device,args):
       "max_hops": args.max_hops,
       "num_hops":args.num_hops,
       "batch_size": args.batch_size,
-      "weight_decay": args.weight_decay
+      "weight_decay": args.weight_decay,
+      "drop_rate": args.drop_rate
     })
 
 def LoggerUpdate(loss,ap_per_class,ap,epoch,type="train"):
