@@ -151,10 +151,14 @@ def main():
             # predict
             pred_batch = model(batch,dist_mask,device)
             
-            loss, pred_score = (1/args.batch_accumulation) * compute_loss(pred_batch, batch.y)
+            loss, pred_score = compute_loss(pred_batch, batch.y)
             loss.backward()
 
             if ((iter + 1) % args.batch_accumulation == 0) or (iter + 1 == len(loaders[0])):
+                # Scale gradients by batch accumulation factor
+                for param in model.parameters():
+                    if param.grad is not None:
+                        param.grad.data /= args.batch_accumulation
                 torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
                 optimizer.step()
                 optimizer.zero_grad()
