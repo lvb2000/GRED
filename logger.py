@@ -10,7 +10,7 @@ def LoggerInit(device,args):
       config={
       "architecture": "GRED-Mamba",
       "dataset": "Peptides-functional",
-      "epochs": 200,
+      "epochs": args.epochs,
       "device": device,
       "base_lr": args.base_lr,
       "batch_accumulation": args.batch_accumulation,
@@ -18,7 +18,8 @@ def LoggerInit(device,args):
       "num_hops":args.num_hops,
       "batch_size": args.batch_size,
       "weight_decay": args.weight_decay,
-      "drop_rate": args.drop_rate
+      "drop_rate": args.drop_rate,
+      "warm_up": args.warmup*args.epochs
     })
 
 def LoggerUpdate(loss,ap_per_class,ap,epoch,type="train"):
