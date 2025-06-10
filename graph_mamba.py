@@ -239,7 +239,7 @@ class GPSModel(nn.Module):
                 embedding = self.embedding_modules[i](current_feature)
                 # Add to running sum
                 x = x + embedding
-        elif self.architecture == "CIFAR10":
+        elif self.dataset == "CIFAR10":
             x = self.linearEncoder2(x)
         
         x = self.linearEncoder(self.gelu(x))
