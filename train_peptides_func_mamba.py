@@ -173,17 +173,19 @@ def main():
             _true = batch.y.detach().cpu().numpy()
             _pred = pred_score.detach().cpu().numpy()
             _loss = loss.detach().cpu().numpy()
+            if args.name in ['MNIST', 'CIFAR10']:
+                _pred = np.argmax(_pred, axis=1)
             trues.append(_true)
             preds.append(_pred)
             losses.append(_loss)
 
-        if args.name == 'peptide':
-            preds = np.vstack(preds)
-            trues = np.vstack(trues)
+        preds = np.vstack(preds)
+        trues = np.vstack(trues)
         # Remove rows where preds or trues contain NaNs
-        mask = ~(np.isnan(preds).any(axis=1) | np.isnan(trues).any(axis=1))
-        preds = preds[mask]
-        trues = trues[mask]
+        if args.name == 'peptide':
+            mask = ~(np.isnan(preds).any(axis=1) | np.isnan(trues).any(axis=1))
+            preds = preds[mask]
+            trues = trues[mask]
         
         losses = np.array(losses)
         mean_loss = losses.mean()
@@ -193,13 +195,8 @@ def main():
             mean_ap = ap_per_class.mean()
             log.LoggerUpdatePeptides(mean_loss, ap_per_class, mean_ap, e+1, type="train")
         elif args.name in ['MNIST', 'CIFAR10']:
-            # Convert predictions to class labels
-            print("Shape of preds:", preds.shape)
-            print("Shape of trues:", trues.shape)
-            pred_labels = np.argmax(preds, axis=1)
-            true_labels = np.argmax(trues, axis=1)
             # Calculate accuracy
-            accuracy = np.mean(pred_labels == true_labels)
+            accuracy = np.mean(preds == trues)
             log.LoggerUpdatePictures(mean_loss, accuracy, e+1, type="train")
             
         # update scheduler
@@ -231,18 +228,20 @@ def main():
                 loss, pred_score = compute_loss(pred_batch, batch.y)
                 _true = batch.y.detach().cpu().numpy()
                 _pred = pred_score.detach().cpu().numpy()
-                _loss = loss.detach().cpu().numpy()
+                if args.name in ['MNIST', 'CIFAR10']:
+                    _pred = np.argmax(_pred, axis=1)
                 trues.append(_true)
                 preds.append(_pred)
                 losses.append(_loss)
 
-        if args.name == 'peptide':
-            preds = np.vstack(preds)
-            trues = np.vstack(trues)
+        preds = np.vstack(preds)
+        trues = np.vstack(trues)
         # Remove rows where preds or trues contain NaNs
-        mask = ~(np.isnan(preds).any(axis=1) | np.isnan(trues).any(axis=1))
-        preds = preds[mask]
-        trues = trues[mask]
+        if args.name == 'peptide':
+            mask = ~(np.isnan(preds).any(axis=1) | np.isnan(trues).any(axis=1))
+            preds = preds[mask]
+            trues = trues[mask]
+            
         losses = np.array(losses)
         mean_loss = losses.mean()
 
@@ -251,11 +250,8 @@ def main():
             mean_ap = ap_per_class.mean()
             log.LoggerUpdatePeptides(mean_loss, ap_per_class, mean_ap, e+1, type="train")
         elif args.name in ['MNIST', 'CIFAR10']:
-            # Convert predictions to class labels
-            pred_labels = np.argmax(preds, axis=1)
-            true_labels = np.argmax(trues, axis=1)
             # Calculate accuracy
-            accuracy = np.mean(pred_labels == true_labels)
+            accuracy = np.mean(preds == trues)
             log.LoggerUpdatePictures(mean_loss, accuracy, e+1, type="train")
 
     log.LoggerEnd()
