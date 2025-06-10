@@ -208,7 +208,7 @@ class GPSModel(nn.Module):
                 embedding_modules.append(embedding)
             self.embedding_modules = nn.Sequential(*embedding_modules)
         elif dataset == "CIFAR10":
-            self.linearEncoder2 = nn.Linear(dim_hidden, dim_hidden)
+            self.linearEncoder2 = nn.Linear(node_feature_dim, dim_hidden)
         self.linearEncoder = nn.Linear(dim_hidden, dim_hidden)
         self.gelu = nn.GELU()
         #----------- Modified Graph Mamba Layer -----------#
