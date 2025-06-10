@@ -73,7 +73,7 @@ def get_loader(dataset, batch_size, shuffle=True):
     pw = False
     loader_train = DataLoader(dataset, batch_size=batch_size,
                                   shuffle=shuffle, num_workers=4,
-                                  pin_memory=True, persistent_workers=pw)
+                                  pin_memory=True, persistent_workers=pw, drop_last=True)
 
     return loader_train
 
@@ -173,9 +173,6 @@ def main():
             _true = batch.y.detach().cpu().numpy()
             _pred = pred_score.detach().cpu().numpy()
             _loss = loss.detach().cpu().numpy()
-            print(f"Shape of true: {_true.shape}")
-            print(f"Shape of pred: {_pred.shape}")
-            print(f"Shape of loss: {_loss.shape}")
             trues.append(_true)
             preds.append(_pred)
             losses.append(_loss)
@@ -233,11 +230,6 @@ def main():
                 _true = batch.y.detach().cpu().numpy()
                 _pred = pred_score.detach().cpu().numpy()
                 _loss = loss.detach().cpu().numpy()
-                # Ensure consistent shapes by adding batch dimension if needed
-                if _true.ndim == 1:
-                    _true = _true.reshape(-1, 1)
-                if _pred.ndim == 1:
-                    _pred = _pred.reshape(-1, 1)
                 trues.append(_true)
                 preds.append(_pred)
                 losses.append(_loss)
