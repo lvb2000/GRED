@@ -241,18 +241,18 @@ def main():
             mask = ~(np.isnan(preds).any(axis=1) | np.isnan(trues).any(axis=1))
             preds = preds[mask]
             trues = trues[mask]
-            
+
         losses = np.array(losses)
         mean_loss = losses.mean()
 
         if args.name == 'peptide':
             ap_per_class = average_precision_score(trues, preds, average=None)
             mean_ap = ap_per_class.mean()
-            log.LoggerUpdatePeptides(mean_loss, ap_per_class, mean_ap, e+1, type="train")
+            log.LoggerUpdatePeptides(mean_loss, ap_per_class, mean_ap, e+1, type="val")
         elif args.name in ['MNIST', 'CIFAR10']:
             # Calculate accuracy
             accuracy = np.mean(preds == trues)
-            log.LoggerUpdatePictures(mean_loss, accuracy, e+1, type="train")
+            log.LoggerUpdatePictures(mean_loss, accuracy, e+1, type="val")
 
     log.LoggerEnd()
 
