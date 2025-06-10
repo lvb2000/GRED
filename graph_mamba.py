@@ -104,7 +104,7 @@ class LSTMLayer(nn.Module):
         # Mamba
         self.self_attn = nn.LSTM(
             input_size=dim_hidden,
-            hidden_size=dim_v,
+            hidden_size=dim_hidden,
             num_layers=1,
             batch_first=True,
             bidirectional=False
@@ -121,7 +121,7 @@ class LSTMLayer(nn.Module):
         # Transpose to (batch_size * num_nodes, seqlen, hidden_dim)
         x = h.transpose(0, 1)
         x = self.layer_norm(x)
-        x = self.self_attn(x)
+        x,_ = self.self_attn(x)
         x = self.mlp2(x)
         # Reshape back to original dimensions
         x = x.transpose(0, 1)  # Back to (seqlen, batch_size * num_nodes, hidden_dim)
