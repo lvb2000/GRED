@@ -1,6 +1,7 @@
 import argparse
 import numpy as np
-from datasets import load_peptides
+from datasets.peptides import load_peptides
+from datasets.GNNBenchmark import load_GNNBenchmark
 from graph_mamba import GPSModel
 import torch
 from tqdm import tqdm
@@ -17,10 +18,12 @@ parser.add_argument("--num_layers", default=8, type=int)
 parser.add_argument("--max_hops", default=False,type=bool)
 parser.add_argument("--num_hops", default=40, type=int)
 parser.add_argument("--dim_h", default=88, type=int)
-parser.add_argument("--dim_v", default=88, type=int)
+parser.add_argument("--dim_out", default=10, type=int)
 parser.add_argument("--drop_rate", default=0, type=float)
 parser.add_argument("--expand", default=1, type=int)
 parser.add_argument("--act", default="full-glu", type=str)
+parser.add_argument("--architecture", default="GRED-MAMBA", type=str)
+parser.add_argument("--feature_dimension", default=9, type=int)
 
 #* training hyper-params
 parser.add_argument("--batch_accumulation", default=2, type=int)
@@ -80,7 +83,14 @@ def create_loader():
     Returns: List of PyTorch data loaders
 
     """
-    dataset = load_peptides()
+    dataset = None
+    if args.name == 'peptide':
+        dataset = load_peptides()
+    if args.name == 'MNIST' or  args.name == 'CIFAR10':
+        dataset = load_GNNBenchmark(args.name)
+    if dataset is None:
+        print("Error: Dataset could not be loaded. Please check the dataset name and configuration.")
+        exit(1)
     # train loader
     id = dataset.data['train_graph_index']
     loaders = [
@@ -116,15 +126,12 @@ def main():
     print(f"Using device: {device}")
     log.LoggerInit(device,args)
     loaders = create_loader()
-    model = GPSModel(9, args.dim_h,10,args.num_layers,args.drop_rate).to(device)
-
+    model = GPSModel(args.architecture,args.name, args.feature_dimension, args.dim_h,args.dim_out,args.num_layers,args.drop_rate).to(device)
     model.train()
-    base_lr = args.base_lr
-    weight_decay = args.weight_decay
     print(f"Optimizer settings:")
-    print(f"Learning rate: {base_lr}")
-    print(f"Weight decay: {weight_decay}")
-    optimizer = torch.optim.AdamW(model.parameters(),lr=base_lr,weight_decay=weight_decay)
+    print(f"Learning rate: {args.base_lr}")
+    print(f"Weight decay: {args.weight_decay}")
+    optimizer = torch.optim.AdamW(model.parameters(),lr=args.base_lr,weight_decay=args.weight_decay)
     scheduler = get_cosine_schedule_with_warmup(optimizer=optimizer,num_warmup_steps=args.warmup*args.epochs,num_training_steps=args.epochs)
     optimizer.zero_grad()
 
@@ -150,7 +157,6 @@ def main():
             
             # predict
             pred_batch = model(batch,dist_mask,device)
-            
             loss, pred_score = compute_loss(pred_batch, batch.y)
             loss.backward()
 
@@ -176,11 +182,22 @@ def main():
         mask = ~(np.isnan(preds).any(axis=1) | np.isnan(trues).any(axis=1))
         preds = preds[mask]
         trues = trues[mask]
-        ap_per_class = average_precision_score(trues, preds, average=None)
-        mean_ap = ap_per_class.mean()
+        
         losses = np.array(losses)
         mean_loss = losses.mean()
-        log.LoggerUpdate(mean_loss,ap_per_class, mean_ap,e+1,type="train")
+        
+        if args.name == 'peptide':
+            ap_per_class = average_precision_score(trues, preds, average=None)
+            mean_ap = ap_per_class.mean()
+            log.LoggerUpdatePeptides(mean_loss, ap_per_class, mean_ap, e+1, type="train")
+        elif args.name in ['MNIST', 'CIFAR10']:
+            # Convert predictions to class labels
+            pred_labels = np.argmax(preds, axis=1)
+            true_labels = np.argmax(trues, axis=1)
+            # Calculate accuracy
+            accuracy = np.mean(pred_labels == true_labels)
+            log.LoggerUpdatePictures(mean_loss, accuracy, e+1, type="train")
+            
         # update scheduler
         scheduler.step()
 
@@ -221,11 +238,20 @@ def main():
         mask = ~(np.isnan(preds).any(axis=1) | np.isnan(trues).any(axis=1))
         preds = preds[mask]
         trues = trues[mask]
-        ap_per_class = average_precision_score(trues, preds, average=None)
-        mean_ap = ap_per_class.mean()
         losses = np.array(losses)
         mean_loss = losses.mean()
-        log.LoggerUpdate(mean_loss,ap_per_class, mean_ap,e+1,type="val")
+
+        if args.name == 'peptide':
+            ap_per_class = average_precision_score(trues, preds, average=None)
+            mean_ap = ap_per_class.mean()
+            log.LoggerUpdatePeptides(mean_loss, ap_per_class, mean_ap, e+1, type="train")
+        elif args.name in ['MNIST', 'CIFAR10']:
+            # Convert predictions to class labels
+            pred_labels = np.argmax(preds, axis=1)
+            true_labels = np.argmax(trues, axis=1)
+            # Calculate accuracy
+            accuracy = np.mean(pred_labels == true_labels)
+            log.LoggerUpdatePictures(mean_loss, accuracy, e+1, type="train")
 
     log.LoggerEnd()
 

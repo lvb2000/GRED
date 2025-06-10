@@ -85,6 +85,47 @@ def sumNodeFeatures(distance_masks,node_features,graph_labels):
         raise
 
 
+class LSTMLayer(nn.Module):
+    def __init__(
+        self,
+        dim_hidden: int,
+        expand: int = 1,
+        drop_rate: int = 0,
+        act: str = "full-glu"
+    ):
+        super().__init__()
+        #----------- Node multiset aggregation -----------#
+        self.sum = sumNodeFeatures
+        self.mlp1 = MLP1(dim_hidden, expand, drop_rate)
+        #----------- Linear Recurrent Network adapted with Mamba -----------#
+        # Norm
+        self.layer_norm = nn.LayerNorm(dim_hidden)
+        # Mamba
+        self.self_attn = nn.LSTM(
+            input_size=dim_hidden,
+            hidden_size=dim_hidden,
+            num_layers=1,
+            batch_first=True,
+            bidirectional=False
+        )
+        # MLP
+        self.mlp2 = MLP2(dim_hidden, drop_rate, act)
+
+    def forward(self, inputs, dist_masks, graph_labels):
+        #----------- Node multiset aggregation -----------#
+        h = self.sum(dist_masks,inputs,graph_labels)
+        # x represents the hidden state after aggregation
+        x_skip = self.mlp1(h)
+        #----------- Mamba block from Graph-Mamba paper -----------#
+        # Transpose to (batch_size * num_nodes, seqlen, hidden_dim)
+        x = h.transpose(0, 1)
+        x = self.layer_norm(x)
+        x = self.self_attn(x)
+        x = self.mlp2(x)
+        # Reshape back to original dimensions
+        x = x.transpose(0, 1)  # Back to (seqlen, batch_size * num_nodes, hidden_dim)
+        return x[0] + x_skip[0]
+
 # Graph Mamba Layer
 class GMBLayer(nn.Module):
 
@@ -107,7 +148,7 @@ class GMBLayer(nn.Module):
         # Mamba
         #model_args = ModelArgs(d_model=dim_hidden,n_layer=4,d_state=d_state, d_conv=d_conv,expand=1)
         #self.self_attn = Mamba(model_args)
-        self.self_attn = Mamba(d_model=dim_hidden, d_state=16, d_conv=4, expand=1)
+        self.self_attn = Mamba(d_model=dim_hidden, d_state=d_state, d_conv=d_conv, expand=1)
         # MLP
         self.mlp2 = MLP2(dim_hidden, drop_rate, act)
 
@@ -153,22 +194,29 @@ class GPSModel(nn.Module):
     Multi-scale graph x-former.
     """
 
-    def __init__(self, node_feature_dim, dim_hidden, dim_out, num_layers, drop_rate=0):
+    def __init__(self,architecture,dataset, node_feature_dim, dim_hidden, dim_out, num_layers, drop_rate=0):
         self.dim_hidden = dim_hidden
         super().__init__()
+        self.dataset = dataset
         #----------- Node feature Encoder -----------#
-        embedding_modules = []
-        for i in range(node_feature_dim):
-            embedding = nn.Embedding(full_atom_feature_dims[i], dim_hidden)
-            nn.init.normal_(embedding.weight, mean=0.0, std=0.01)
-            embedding_modules.append(embedding)
-        self.embedding_modules = nn.Sequential(*embedding_modules)
+        if dataset == "peptides-func":
+            embedding_modules = []
+            for i in range(node_feature_dim):
+                embedding = nn.Embedding(full_atom_feature_dims[i], dim_hidden)
+                nn.init.normal_(embedding.weight, mean=0.0, std=0.01)
+                embedding_modules.append(embedding)
+            self.embedding_modules = nn.Sequential(*embedding_modules)
+        elif dataset == "CIFAR10":
+            self.linearEncoder2 = nn.Linear(dim_hidden, dim_hidden)
         self.linearEncoder = nn.Linear(dim_hidden, dim_hidden)
         self.gelu = nn.GELU()
         #----------- Modified Graph Mamba Layer -----------#
         layers = []
         for i in range(num_layers):
-            layers.append(GMBLayer(dim_hidden, drop_rate=drop_rate))
+            if architecture == "GRED-MAMBA":
+                layers.append(GMBLayer(dim_hidden, drop_rate=drop_rate))
+            elif architecture == "LSTM":
+                layers.append(LSTMLayer(dim_hidden, drop_rate=drop_rate))
         self.layers = nn.Sequential(*layers)
         #----------- Graph Predicition Head -----------#
         self.head = Head(dim_hidden, dim_out)
@@ -177,19 +225,22 @@ class GPSModel(nn.Module):
         #----------- Node feature Encoder -----------#
         # Initialize x as zeros
         # Shape: [batch_size, num_nodes, dim_hidden]
-        x = torch.zeros(inputs.x.shape[0], self.dim_hidden, device=device)
+        if self.dataset == "peptides-func":
+            x = torch.zeros(inputs.x.shape[0], self.dim_hidden, device=device)
+            
+            # Iterate through each feature dimension
+            for i in range(inputs.x.shape[-1]):
+                # Get the current feature
+                current_feature = inputs.x[..., i]
+                # Convert to long type for embedding
+                current_feature = current_feature.long()
+                # Get embedding for this feature
+                embedding = self.embedding_modules[i](current_feature)
+                # Add to running sum
+                x = x + embedding
+        elif self.architecture == "CIFAR10":
+            x = self.linearEncoder2(x)
         
-        # Iterate through each feature dimension
-        for i in range(inputs.x.shape[-1]):
-            # Get the current feature
-            current_feature = inputs.x[..., i]
-            # Convert to long type for embedding
-            current_feature = current_feature.long()
-            # Get embedding for this feature
-            embedding = self.embedding_modules[i](current_feature)
-            # Add to running sum
-            x = x + embedding
-
         x = self.linearEncoder(self.gelu(x))
         
         #----------- Modified Graph Mamba Layer -----------#

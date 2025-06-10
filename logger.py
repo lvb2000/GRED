@@ -8,8 +8,8 @@ def LoggerInit(device,args):
       name="baseline",
       # Track hyperparameters and run metadata
       config={
-      "architecture": "GRED-Mamba",
-      "dataset": "Peptides-functional",
+      "architecture": args.architecture,
+      "dataset": args.name,
       "epochs": args.epochs,
       "device": device,
       "base_lr": args.base_lr,
@@ -22,10 +22,14 @@ def LoggerInit(device,args):
       "warm_up": args.warmup*args.epochs
     })
 
-def LoggerUpdate(loss,ap_per_class,ap,epoch,type="train"):
+def LoggerUpdatePeptides(loss,ap_per_class,ap,epoch,type="train"):
     wandb.log({f"{type}_loss": loss},step=epoch)
     wandb.log({f"{type}_AP_mean": ap},step=epoch)
     wandb.log({f"{type}_AP": {f"Class_{i}": ap_per_class[i] for i in range(len(ap_per_class))}},step=epoch)
+
+def LoggerUpdatePictures(loss,accuracy,epoch,type="train"):
+    wandb.log({f"{type}_loss": loss},step=epoch)
+    wandb.log({f"{type}_accuracy_mean": accuracy},step=epoch)
 
 def LoggerEnd():
     wandb.finish()
