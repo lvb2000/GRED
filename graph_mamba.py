@@ -89,6 +89,7 @@ class LSTMLayer(nn.Module):
     def __init__(
         self,
         dim_hidden: int,
+        dim_v: int,
         expand: int = 1,
         drop_rate: int = 0,
         act: str = "full-glu"
@@ -103,7 +104,7 @@ class LSTMLayer(nn.Module):
         # Mamba
         self.self_attn = nn.LSTM(
             input_size=dim_hidden,
-            hidden_size=dim_hidden,
+            hidden_size=dim_v,
             num_layers=1,
             batch_first=True,
             bidirectional=False
@@ -194,7 +195,7 @@ class GPSModel(nn.Module):
     Multi-scale graph x-former.
     """
 
-    def __init__(self,architecture,dataset, node_feature_dim, dim_hidden, dim_out, num_layers, drop_rate=0):
+    def __init__(self,architecture,dataset, node_feature_dim, dim_hidden, dim_v, dim_out, num_layers, drop_rate=0):
         self.dim_hidden = dim_hidden
         super().__init__()
         self.dataset = dataset
@@ -216,7 +217,7 @@ class GPSModel(nn.Module):
             if architecture == "GRED-MAMBA":
                 layers.append(GMBLayer(dim_hidden, drop_rate=drop_rate))
             elif architecture == "LSTM":
-                layers.append(LSTMLayer(dim_hidden, drop_rate=drop_rate))
+                layers.append(LSTMLayer(dim_hidden, dim_v, drop_rate=drop_rate))
         self.layers = nn.Sequential(*layers)
         #----------- Graph Predicition Head -----------#
         self.head = Head(dim_hidden, dim_out)
