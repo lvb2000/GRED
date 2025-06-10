@@ -240,7 +240,7 @@ class GPSModel(nn.Module):
                 # Add to running sum
                 x = x + embedding
         elif self.dataset == "CIFAR10":
-            x = self.linearEncoder2(x)
+            x = self.linearEncoder2(inputs.x)
         
         x = self.linearEncoder(self.gelu(x))
         
