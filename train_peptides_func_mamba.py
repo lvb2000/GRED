@@ -194,6 +194,8 @@ def main():
             log.LoggerUpdatePeptides(mean_loss, ap_per_class, mean_ap, e+1, type="train")
         elif args.name in ['MNIST', 'CIFAR10']:
             # Convert predictions to class labels
+            print("Shape of preds:", preds.shape)
+            print("Shape of trues:", trues.shape)
             pred_labels = np.argmax(preds, axis=1)
             true_labels = np.argmax(trues, axis=1)
             # Calculate accuracy
