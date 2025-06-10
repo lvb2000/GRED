@@ -61,8 +61,8 @@ def compute_loss(pred, true):
     # CrossEntropy Loss
     # multiclass
     if pred.ndim > 1 and true.ndim == 1:
-        pred = torch.nn.functional.F.log_softmax(pred, dim=-1)
-        return torch.nn.functional.F.nll_loss(pred, true), pred
+        pred = torch.nn.functional.log_softmax(pred, dim=-1)
+        return torch.nn.functional.nll_loss(pred, true), pred
     # binary or multilabel
     else:
         true = true.float()
