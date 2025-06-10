@@ -173,12 +173,16 @@ def main():
             _true = batch.y.detach().cpu().numpy()
             _pred = pred_score.detach().cpu().numpy()
             _loss = loss.detach().cpu().numpy()
+            print(f"Shape of true: {_true.shape}")
+            print(f"Shape of pred: {_pred.shape}")
+            print(f"Shape of loss: {_loss.shape}")
             trues.append(_true)
             preds.append(_pred)
             losses.append(_loss)
 
-        preds = np.vstack(preds)
-        trues = np.vstack(trues)
+        if args.name == 'peptide':
+            preds = np.vstack(preds)
+            trues = np.vstack(trues)
         # Remove rows where preds or trues contain NaNs
         mask = ~(np.isnan(preds).any(axis=1) | np.isnan(trues).any(axis=1))
         preds = preds[mask]
@@ -229,12 +233,18 @@ def main():
                 _true = batch.y.detach().cpu().numpy()
                 _pred = pred_score.detach().cpu().numpy()
                 _loss = loss.detach().cpu().numpy()
+                # Ensure consistent shapes by adding batch dimension if needed
+                if _true.ndim == 1:
+                    _true = _true.reshape(-1, 1)
+                if _pred.ndim == 1:
+                    _pred = _pred.reshape(-1, 1)
                 trues.append(_true)
                 preds.append(_pred)
                 losses.append(_loss)
 
-        preds = np.vstack(preds)
-        trues = np.vstack(trues)
+        if args.name == 'peptide':
+            preds = np.vstack(preds)
+            trues = np.vstack(trues)
         # Remove rows where preds or trues contain NaNs
         mask = ~(np.isnan(preds).any(axis=1) | np.isnan(trues).any(axis=1))
         preds = preds[mask]
