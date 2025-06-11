@@ -85,7 +85,7 @@ def create_loader():
 
     """
     dataset = None
-    if args.name == 'peptide':
+    if args.name == "peptides-func":
         dataset = load_peptides()
     if args.name == 'MNIST' or  args.name == 'CIFAR10':
         dataset = load_GNNBenchmark(args.name)
@@ -182,7 +182,7 @@ def main():
         preds = np.vstack(preds)
         trues = np.vstack(trues)
         # Remove rows where preds or trues contain NaNs
-        if args.name == 'peptide':
+        if args.name == "peptides-func":
             mask = ~(np.isnan(preds).any(axis=1) | np.isnan(trues).any(axis=1))
             preds = preds[mask]
             trues = trues[mask]
@@ -190,7 +190,7 @@ def main():
         losses = np.array(losses)
         mean_loss = losses.mean()
         
-        if args.name == 'peptide':
+        if args.name == "peptides-func":
             ap_per_class = average_precision_score(trues, preds, average=None)
             mean_ap = ap_per_class.mean()
             log.LoggerUpdatePeptides(mean_loss, ap_per_class, mean_ap, e+1, type="train")
@@ -237,7 +237,7 @@ def main():
         preds = np.vstack(preds)
         trues = np.vstack(trues)
         # Remove rows where preds or trues contain NaNs
-        if args.name == 'peptide':
+        if args.name == "peptides-func":
             mask = ~(np.isnan(preds).any(axis=1) | np.isnan(trues).any(axis=1))
             preds = preds[mask]
             trues = trues[mask]
@@ -245,7 +245,7 @@ def main():
         losses = np.array(losses)
         mean_loss = losses.mean()
 
-        if args.name == 'peptide':
+        if args.name == "peptides-func":
             ap_per_class = average_precision_score(trues, preds, average=None)
             mean_ap = ap_per_class.mean()
             log.LoggerUpdatePeptides(mean_loss, ap_per_class, mean_ap, e+1, type="val")
