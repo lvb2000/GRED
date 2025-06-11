@@ -215,7 +215,7 @@ class GPSModel(nn.Module):
         layers = []
         for i in range(num_layers):
             if architecture == "GRED-MAMBA":
-                layers.append(GMBLayer(dim_hidden, drop_rate=drop_rate))
+                layers.append(GMBLayer(dim_hidden, dim_v, drop_rate=drop_rate))
             elif architecture == "LSTM":
                 layers.append(LSTMLayer(dim_hidden, dim_v, drop_rate=drop_rate))
         self.layers = nn.Sequential(*layers)

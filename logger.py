@@ -19,7 +19,8 @@ def LoggerInit(device,args):
       "batch_size": args.batch_size,
       "weight_decay": args.weight_decay,
       "drop_rate": args.drop_rate,
-      "warm_up": args.warmup*args.epochs
+      "warm_up": args.warmup*args.epochs,
+      "dim_v": args.dim_v
     })
 
 def LoggerUpdatePeptides(loss,ap_per_class,ap,epoch,type="train"):
