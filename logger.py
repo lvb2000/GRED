@@ -1,6 +1,6 @@
 import wandb
 
-def LoggerInit(device,args):
+def LoggerInit(device,args,total_params):
     wandb.init(
       # Set the project where this run will be logged
       project="GRED-Mamba",
@@ -20,7 +20,8 @@ def LoggerInit(device,args):
       "weight_decay": args.weight_decay,
       "drop_rate": args.drop_rate,
       "warm_up": args.warmup*args.epochs,
-      "dim_v": args.dim_v
+      "dim_v": args.dim_v,
+      "#parameters": total_params
     })
 
 def LoggerUpdatePeptides(loss,ap_per_class,ap,epoch,type="train"):

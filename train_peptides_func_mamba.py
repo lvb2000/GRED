@@ -125,9 +125,16 @@ def get_cosine_schedule_with_warmup(
 def main():
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     print(f"Using device: {device}")
-    log.LoggerInit(device,args)
     loaders = create_loader()
     model = GPSModel(args.architecture,args.name, args.feature_dimension, args.dim_h, args.dim_v,args.dim_out,args.num_layers,args.drop_rate).to(device)
+    # Calculate total number of parameters and model size
+    total_params = sum(p.numel() for p in model.parameters())
+    # Calculate model size in bytes (assuming float32 parameters)
+    model_size_bytes = total_params * 4  # 4 bytes per float32
+    model_size_mb = model_size_bytes / (1024 * 1024)  # Convert to MB
+    args.num_params = total_params
+    print(f"Model size: {model_size_mb:.2f} MB ({total_params:,} parameters)")
+    log.LoggerInit(device,args,total_params)
     model.train()
     print(f"Optimizer settings:")
     print(f"Learning rate: {args.base_lr}")
