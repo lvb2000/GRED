@@ -28,7 +28,7 @@ class MLP1(nn.Module):
     
 class MLP2(nn.Module):
 
-    def __init__(self, dim_hidden, drop_rate = 0, act = "full-glu"):
+    def __init__(self, dim_hidden,dim_v, drop_rate = 0, act = "full-glu"):
         super().__init__()
         self.dim_hidden = dim_hidden
         self.drop_rate = drop_rate
@@ -36,10 +36,10 @@ class MLP2(nn.Module):
         self.gelu = nn.GELU()
         self.dropout = nn.Dropout(drop_rate)
         if act == "full-glu":
-            self.linear1 = nn.Linear(dim_hidden, dim_hidden)
-            self.linear2 = nn.Linear(dim_hidden, dim_hidden)
+            self.linear1 = nn.Linear(dim_v, dim_hidden)
+            self.linear2 = nn.Linear(dim_v, dim_hidden)
         elif act == "half-glu":
-            self.linear = nn.Linear(dim_hidden, dim_hidden)
+            self.linear = nn.Linear(dim_v, dim_hidden)
 
     def forward(self, inputs):
         x = self.gelu(inputs)
@@ -107,11 +107,10 @@ class LSTMLayer(nn.Module):
             hidden_size=dim_v,
             num_layers=1,
             batch_first=True,
-            bidirectional=False,
-            proj_size=dim_hidden,
+            bidirectional=False
         )
         # MLP
-        self.mlp2 = MLP2(dim_hidden, drop_rate, act)
+        self.mlp2 = MLP2(dim_hidden, dim_v, drop_rate, act)
 
     def forward(self, inputs, dist_masks, graph_labels):
         #----------- Node multiset aggregation -----------#
@@ -152,7 +151,7 @@ class GMBLayer(nn.Module):
         #self.self_attn = Mamba(model_args)
         self.self_attn = Mamba(d_model=dim_hidden, d_state=d_state, d_conv=d_conv, expand=1)
         # MLP
-        self.mlp2 = MLP2(dim_hidden, drop_rate, act)
+        self.mlp2 = MLP2(dim_hidden,dim_hidden, drop_rate, act)
 
     def forward(self, inputs, dist_masks, graph_labels):
         #----------- Node multiset aggregation -----------#
