@@ -101,13 +101,14 @@ class LSTMLayer(nn.Module):
         #----------- Linear Recurrent Network adapted with Mamba -----------#
         # Norm
         self.layer_norm = nn.LayerNorm(dim_hidden)
-        # Mamba
+        # LSTM
         self.self_attn = nn.LSTM(
             input_size=dim_hidden,
             hidden_size=dim_v,
             num_layers=1,
             batch_first=True,
-            bidirectional=False
+            bidirectional=False,
+            proj_size=dim_hidden,
         )
         # MLP
         self.mlp2 = MLP2(dim_hidden, drop_rate, act)
