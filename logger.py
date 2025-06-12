@@ -21,6 +21,7 @@ def LoggerInit(device,args,total_params):
       "drop_rate": args.drop_rate,
       "warm_up": args.warmup*args.epochs,
       "dim_v": args.dim_v,
+      "dim_h": args.dim_h,
       "#parameters": total_params
     })
 

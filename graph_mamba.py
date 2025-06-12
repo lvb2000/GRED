@@ -104,7 +104,7 @@ class LSTMLayer(nn.Module):
         # Mamba
         self.self_attn = nn.LSTM(
             input_size=dim_hidden,
-            hidden_size=dim_hidden,
+            hidden_size=dim_v,
             num_layers=1,
             batch_first=True,
             bidirectional=False
