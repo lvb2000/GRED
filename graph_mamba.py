@@ -173,7 +173,7 @@ class GMBLayer(nn.Module):
         x_skip1 = batch.x
         local_out = self.local_model(pygdata.Batch( batch=batch,
                                                     x=batch.x.float(),
-                                                    edge_index=batch.edge_index.float(),
+                                                    edge_index=batch.edge_index,
                                                     edge_attr=batch.edge_attr.float(),
                                                     pe_EquivStableLapPE=True))
         batch.edge_attr = local_out.edge_attr
