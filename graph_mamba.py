@@ -5,6 +5,7 @@ from mamba_ssm import Mamba
 from torch_geometric.utils import to_dense_batch
 from GatedGCN import GatedGCNLayer
 import torch_geometric.data as pygdata
+from torch_geometric.graphgym import BondEncoder, AtomEncoder
 
 
 class MLP1(nn.Module):
@@ -231,12 +232,8 @@ class GPSModel(nn.Module):
         self.architecture = architecture
         #----------- Node feature Encoder -----------#
         if dataset == "peptides-func":
-            embedding_modules = []
-            for i in range(node_feature_dim):
-                embedding = nn.Embedding(full_atom_feature_dims[i], dim_hidden)
-                nn.init.normal_(embedding.weight, mean=0.0, std=0.01)
-                embedding_modules.append(embedding)
-            self.embedding_modules = nn.Sequential(*embedding_modules)
+            self.node_encoder = AtomEncoder(dim_hidden)
+            self.edge_encoder = BondEncoder(dim_hidden)
         elif dataset == "CIFAR10":
             self.linearEncoder2 = nn.Linear(node_feature_dim, dim_hidden)
         self.linearEncoder = nn.Linear(dim_hidden, dim_hidden)
@@ -257,19 +254,8 @@ class GPSModel(nn.Module):
         # Initialize x as zeros
         # Shape: [batch_size, num_nodes, dim_hidden]
         if self.dataset == "peptides-func":
-            x = torch.zeros(inputs.x.shape[0], self.dim_hidden, device=device)
-            
-            # Iterate through each feature dimension
-            for i in range(inputs.x.shape[-1]):
-                # Get the current feature
-                current_feature = inputs.x[..., i]
-                # Convert to long type for embedding
-                current_feature = current_feature.long()
-                # Get embedding for this feature
-                embedding = self.embedding_modules[i](current_feature)
-                # Add to running sum
-                x = x + embedding
-            inputs.x = x
+            inputs = self.node_encoder(inputs)
+            inputs = self.edge_encoder(inputs)
         elif self.dataset == "CIFAR10":
             inputs.x = self.linearEncoder2(inputs.x)
         
