@@ -3,6 +3,12 @@ import torch.nn as nn
 #from mamba import Mamba,ModelArgs
 from mamba_ssm import Mamba
 from torch_geometric.utils import to_dense_batch
+from GatedGCN import GatedGCNLayer
+import torch_geometric.data as pygdata
+from torch_geometric.graphgym import BondEncoder, AtomEncoder
+from composed_encoders import concat_node_encoders
+from laplace_pos_encoder import LapPENodeEncoder
+
 
 class MLP1(nn.Module):
 
@@ -112,9 +118,9 @@ class LSTMLayer(nn.Module):
         # MLP
         self.mlp2 = MLP2(dim_hidden, dim_v, drop_rate, act)
 
-    def forward(self, inputs, dist_masks, graph_labels):
+    def forward(self, batch, dist_masks):
         #----------- Node multiset aggregation -----------#
-        h = self.sum(dist_masks,inputs,graph_labels)
+        h = self.sum(dist_masks,batch.x,batch.batch)
         # x represents the hidden state after aggregation
         x_skip = self.mlp1(h)
         #----------- Mamba block from Graph-Mamba paper -----------#
@@ -126,7 +132,8 @@ class LSTMLayer(nn.Module):
         x = self.mlp2(x)
         # Reshape back to original dimensions
         x = x.transpose(0, 1)  # Back to (seqlen, batch_size * num_nodes, hidden_dim)
-        return x[-1] + x_skip[0]
+        batch.x = x[-1] + x_skip[0]
+        return batch
 
 # Graph Mamba Layer
 class GMBLayer(nn.Module):
@@ -141,6 +148,12 @@ class GMBLayer(nn.Module):
         act: str = "full-glu"
     ):
         super().__init__()
+        #----------- Local Convolution -----------#
+        self.local_model = GatedGCNLayer(dim_hidden, dim_hidden,
+                                             dropout=drop_rate,
+                                             residual=True,
+                                             equivstable_pe=False)
+        self.norm_local = nn.LayerNorm(dim_hidden)
         #----------- Node multiset aggregation -----------#
         self.sum = sumNodeFeatures
         self.mlp1 = MLP1(dim_hidden, expand, drop_rate)
@@ -153,22 +166,39 @@ class GMBLayer(nn.Module):
         self.self_attn = Mamba(d_model=dim_hidden, d_state=d_state, d_conv=d_conv, expand=1)
         # MLP
         self.mlp2 = MLP2(dim_hidden,dim_hidden, drop_rate, act)
+        #----------- Aggregate Local and Global Model -----------#
+        self.norm_out = nn.LayerNorm(dim_hidden)
 
-    def forward(self, inputs, dist_masks, graph_labels):
+    def forward(self, batch, dist_masks):
+        out_list = []
+        #----------- Local Convolution -----------#
+        x_skip1 = batch.x
+        local_out = self.local_model(pygdata.Batch( batch=batch,
+                                                    x=batch.x,
+                                                    edge_index=batch.edge_index,
+                                                    edge_attr=batch.edge_attr,
+                                                    pe_EquivStableLapPE=False))
+        batch.edge_attr = local_out.edge_attr
+        local = self.norm_local(x_skip1 + local_out.x)
+        out_list.append(local)
         #----------- Node multiset aggregation -----------#
-        h = self.sum(dist_masks,inputs,graph_labels)
+        x = self.sum(dist_masks,batch.x,batch.batch)
         # x represents the hidden state after aggregation
-        x_skip = self.mlp1(h)
+        x_skip2 = self.mlp1(x)
         #----------- Mamba block from Graph-Mamba paper -----------#
         # Transpose to (batch_size * num_nodes, seqlen, hidden_dim)
-        x = h.transpose(0, 1)
+        x = x.transpose(0, 1)
         x = torch.flip(x, dims=[1])
         x = self.layer_norm(x)
         x = self.self_attn(x)
+        x = x.transpose(0, 1)
+        x = x[-1]
         x = self.mlp2(x)
-        # Reshape back to original dimensions
-        x = x.transpose(0, 1)  # Back to (seqlen, batch_size * num_nodes, hidden_dim)
-        return x[-1] + x_skip[0]
+        x = x + x_skip2[0]
+        #----------- Aggregate Local and Global Model -----------#
+        out_list.append(x)
+        batch.x = self.norm_out(sum(out_list))
+        return batch
 
 class Head(nn.Module):
 
@@ -188,69 +218,75 @@ class Head(nn.Module):
         x = self.gelu(self.linear1(x))
         x = self.linear2(x)
         return x
-    
-full_atom_feature_dims = [119, 5, 12, 12, 10, 6, 6, 2, 2]
-full_bond_feature_dims = [5, 6, 2]
+
+class FeatureEncoder(torch.nn.Module):
+    """
+    Encoding node and edge features
+
+    Args:
+        dim_in (int): Input feature dimension
+    """
+    def __init__(self,pos_enc):
+        super(FeatureEncoder, self).__init__()
+        # Encode integer node features via nn.Embeddings
+        if pos_enc:
+            NodeEncoder = concat_node_encoders([AtomEncoder, LapPENodeEncoder],['LapPE'])
+            self.node_encoder = NodeEncoder(96)
+            self.edge_encoder = BondEncoder(96)
+        else:
+            self.node_encoder = AtomEncoder(88)
+            self.edge_encoder = BondEncoder(88)
+
+
+    def forward(self, batch):
+        for module in self.children():
+            batch = module(batch)
+        return batch
     
 class GPSModel(nn.Module):
     """
     Multi-scale graph x-former.
     """
 
-    def __init__(self,architecture,dataset, node_feature_dim, dim_hidden, dim_v, dim_out, num_layers, drop_rate=0):
-        self.dim_hidden = dim_hidden
+    def __init__(self,args):
+        self.dim_hidden = args.dim_h
         super().__init__()
-        self.dataset = dataset
+        self.dataset = args.name
+        self.architecture = args.architecture
         #----------- Node feature Encoder -----------#
-        if dataset == "peptides-func":
-            embedding_modules = []
-            for i in range(node_feature_dim):
-                embedding = nn.Embedding(full_atom_feature_dims[i], dim_hidden)
-                nn.init.normal_(embedding.weight, mean=0.0, std=0.01)
-                embedding_modules.append(embedding)
-            self.embedding_modules = nn.Sequential(*embedding_modules)
-        elif dataset == "CIFAR10":
-            self.linearEncoder2 = nn.Linear(node_feature_dim, dim_hidden)
-        self.linearEncoder = nn.Linear(dim_hidden, dim_hidden)
+        if self.dataset == "peptides-func":
+            self.encoder = FeatureEncoder(args.pos_enc)
+        elif self.dataset == "CIFAR10":
+            self.linearEncoder2 = nn.Linear(args.feature_dimension, args.dim_h)
+        self.linearEncoder = nn.Linear(args.dim_h, args.dim_h)
         self.gelu = nn.GELU()
         #----------- Modified Graph Mamba Layer -----------#
         layers = []
-        for i in range(num_layers):
-            if architecture == "GRED-MAMBA":
-                layers.append(GMBLayer(dim_hidden, dim_v, drop_rate=drop_rate))
-            elif architecture == "LSTM":
-                layers.append(LSTMLayer(dim_hidden, dim_v, drop_rate=drop_rate))
+        for i in range(args.num_layers):
+            if args.architecture == "GRED-MAMBA":
+                layers.append(GMBLayer(args.dim_h, args.dim_v, drop_rate=args.drop_rate))
+            elif args.architecture == "LSTM":
+                layers.append(LSTMLayer(args.dim_h, args.dim_v, drop_rate=args.drop_rate))
         self.layers = nn.Sequential(*layers)
         #----------- Graph Predicition Head -----------#
-        self.head = Head(dim_hidden, dim_out)
+        self.head = Head(args.dim_h, args.dim_out)
 
     def forward(self, inputs, dist_mask, device):
         #----------- Node feature Encoder -----------#
         # Initialize x as zeros
         # Shape: [batch_size, num_nodes, dim_hidden]
         if self.dataset == "peptides-func":
-            x = torch.zeros(inputs.x.shape[0], self.dim_hidden, device=device)
-            
-            # Iterate through each feature dimension
-            for i in range(inputs.x.shape[-1]):
-                # Get the current feature
-                current_feature = inputs.x[..., i]
-                # Convert to long type for embedding
-                current_feature = current_feature.long()
-                # Get embedding for this feature
-                embedding = self.embedding_modules[i](current_feature)
-                # Add to running sum
-                x = x + embedding
+            inputs = self.encoder(inputs)
         elif self.dataset == "CIFAR10":
-            x = self.linearEncoder2(inputs.x)
+            inputs.x = self.linearEncoder2(inputs.x)
         
-        x = self.linearEncoder(self.gelu(x))
+        inputs.x = self.linearEncoder(self.gelu(inputs.x))
         
         #----------- Modified Graph Mamba Layer -----------#
         for layer in self.layers:
-            x = layer(x, dist_mask, inputs.batch)
+            inputs = layer(inputs, dist_mask)
         
         #----------- Graph Predicition Head -----------#
-        x = self.head(x, inputs.batch)
-        return x
+        inputs.x = self.head(inputs.x, inputs.batch)
+        return inputs.x
             

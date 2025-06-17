@@ -17,7 +17,7 @@ parser = argparse.ArgumentParser()
 parser.add_argument("--num_layers", default=8, type=int)
 parser.add_argument("--max_hops", default=False,type=bool)
 parser.add_argument("--num_hops", default=40, type=int)
-parser.add_argument("--dim_h", default=88, type=int)
+parser.add_argument("--dim_h", default=96, type=int)
 parser.add_argument("--dim_v", default=88, type=int)
 parser.add_argument("--dim_out", default=10, type=int)
 parser.add_argument("--drop_rate", default=0, type=float)
@@ -25,6 +25,7 @@ parser.add_argument("--expand", default=1, type=int)
 parser.add_argument("--act", default="full-glu", type=str)
 parser.add_argument("--architecture", default="GRED-MAMBA", type=str)
 parser.add_argument("--feature_dimension", default=9, type=int)
+parser.add_argument("--pos_enc", default=False, type=bool)
 
 #* training hyper-params
 parser.add_argument("--batch_accumulation", default=2, type=int)
@@ -87,7 +88,7 @@ def create_loader():
     """
     dataset = None
     if args.name == "peptides-func":
-        dataset = load_peptides()
+        dataset = load_peptides(args.pos_enc)
     if args.name == 'MNIST' or  args.name == 'CIFAR10':
         dataset = load_GNNBenchmark(args.name)
     if dataset is None:
@@ -127,7 +128,7 @@ def main():
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     print(f"Using device: {device}")
     loaders = create_loader()
-    model = GPSModel(args.architecture,args.name, args.feature_dimension, args.dim_h, args.dim_v,args.dim_out,args.num_layers,args.drop_rate).to(device)
+    model = GPSModel(args).to(device)
     # Calculate total number of parameters and model size
     total_params = sum(p.numel() for p in model.parameters())
     # Calculate model size in bytes (assuming float32 parameters)
@@ -143,6 +144,14 @@ def main():
     optimizer = torch.optim.AdamW(model.parameters(),lr=args.base_lr,weight_decay=args.weight_decay)
     scheduler = get_cosine_schedule_with_warmup(optimizer=optimizer,num_warmup_steps=args.warmup*args.epochs,num_training_steps=args.epochs)
     optimizer.zero_grad()
+
+    if args.max_hops:
+        max_graph_diameter = 0
+        for iter, batch in enumerate(loaders[0]):
+            max_hops = max(batch.k_max)
+            if max_hops > max_graph_diameter:
+                max_graph_diameter = max_hops
+        print(f"Max graph diameter in training set: {max_graph_diameter}")
 
     for e in tqdm(range(args.epochs), desc="Training"):
         model.train()
