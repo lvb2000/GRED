@@ -6,6 +6,8 @@ from torch_geometric.utils import to_dense_batch
 from GatedGCN import GatedGCNLayer
 import torch_geometric.data as pygdata
 from torch_geometric.graphgym import BondEncoder, AtomEncoder
+from composed_encoders import concat_node_encoders
+from laplace_pos_encoder import LapPENodeEncoder
 
 
 class MLP1(nn.Module):
@@ -232,7 +234,8 @@ class GPSModel(nn.Module):
         self.architecture = architecture
         #----------- Node feature Encoder -----------#
         if dataset == "peptides-func":
-            self.node_encoder = AtomEncoder(dim_hidden)
+            NodeEncoder = concat_node_encoders([AtomEncoder, LapPENodeEncoder],['LapPE'])
+            self.node_encoder = NodeEncoder(dim_hidden)
             self.edge_encoder = BondEncoder(dim_hidden)
         elif dataset == "CIFAR10":
             self.linearEncoder2 = nn.Linear(node_feature_dim, dim_hidden)
