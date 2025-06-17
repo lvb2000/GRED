@@ -86,8 +86,8 @@ def gen_dist_mask(adj):
     dist = np.where(np.isfinite(dist), dist, -1).astype(np.int32)
     k_max = dist.max() + 1
     dist_mask = np.stack([(dist == k) for k in range(k_max)])
-    return dist_mask,k_max
-        
+    return dist_mask, k_max
+
 def compute_dist_mask(g):
     num_nodes = g.x.shape[0]
     g.graph_nodes = num_nodes

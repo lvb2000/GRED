@@ -22,7 +22,9 @@ def LoggerInit(device,args,total_params):
       "warm_up": args.warmup*args.epochs,
       "dim_v": args.dim_v,
       "dim_h": args.dim_h,
-      "#parameters": total_params
+      "#parameters": total_params,
+      "pos_enc": args.pos_enc,
+      "local_model": args.local_model
     })
 
 def LoggerUpdatePeptides(loss,ap_per_class,ap,epoch,type="train"):

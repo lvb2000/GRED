@@ -3,6 +3,7 @@ import torch_geometric.transforms as T
 from torch_geometric.datasets import GNNBenchmarkDataset
 from datasets.utils import compute_dist_mask, pre_transform_in_memory, set_dataset_splits, setup_standard_split
 import torch
+from torch_geometric.transforms import ToDense
 
 def join_dataset_splits(datasets):
     assert len(datasets) == 3, "Expecting train, val, test datasets"
@@ -45,7 +46,7 @@ def preformat_GNNBenchmarkDataset(dataset_dir, name):
                    f"GNNBenchmarkDataset is not supported.")
 
     dataset = join_dataset_splits(
-        [GNNBenchmarkDataset(root=dataset_dir, name=name, split=split)
+        [GNNBenchmarkDataset(root=dataset_dir, name=name, split=split,transform=ToDense(150))
          for split in ['train', 'val', 'test']]
     )
     pre_transform_in_memory(dataset, partial(compute_dist_mask))
