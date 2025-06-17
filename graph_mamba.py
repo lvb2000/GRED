@@ -174,7 +174,7 @@ class GMBLayer(nn.Module):
                                                     x=batch.x,
                                                     edge_index=batch.edge_index,
                                                     edge_attr=batch.edge_attr,
-                                                    pe_EquivStableLapPE=self.equivstable_pe))
+                                                    pe_EquivStableLapPE=True))
         batch.edge_attr = local_out.edge_attr
         local = self.norm_local(x_skip1 + local_out.x)
         out_list.append(local)
