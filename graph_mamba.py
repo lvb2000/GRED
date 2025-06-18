@@ -218,9 +218,31 @@ class Head(nn.Module):
         x = self.gelu(self.linear1(x))
         x = self.linear2(x)
         return x
-    
-full_atom_feature_dims = [119, 5, 12, 12, 10, 6, 6, 2, 2]
-full_bond_feature_dims = [5, 6, 2]
+
+class FeatureEncoder(torch.nn.Module):
+    """
+    Encoding node and edge features
+
+    Args:
+        dim_in (int): Input feature dimension
+    """
+    def __init__(self, dim_in):
+        super(FeatureEncoder, self).__init__()
+        self.dim_in = dim_in
+        # Encode integer node features via nn.Embeddings
+        NodeEncoder = concat_node_encoders([AtomEncoder, LapPENodeEncoder],['LapPE'])
+        self.node_encoder = NodeEncoder(96)
+        # Update dim_in to reflect the new dimension fo the node features
+        self.dim_in = 96
+
+        # Hard-set edge dim for PNA.
+        self.edge_encoder = BondEncoder(96)
+
+
+    def forward(self, batch):
+        for module in self.children():
+            batch = module(batch)
+        return batch
     
 class GPSModel(nn.Module):
     """
@@ -234,9 +256,7 @@ class GPSModel(nn.Module):
         self.architecture = architecture
         #----------- Node feature Encoder -----------#
         if dataset == "peptides-func":
-            NodeEncoder = concat_node_encoders([AtomEncoder, LapPENodeEncoder],['LapPE'])
-            self.node_encoder = NodeEncoder(dim_hidden)
-            self.edge_encoder = BondEncoder(dim_hidden)
+            self.encoder = FeatureEncoder(100)
         elif dataset == "CIFAR10":
             self.linearEncoder2 = nn.Linear(node_feature_dim, dim_hidden)
         self.linearEncoder = nn.Linear(dim_hidden, dim_hidden)
@@ -257,8 +277,7 @@ class GPSModel(nn.Module):
         # Initialize x as zeros
         # Shape: [batch_size, num_nodes, dim_hidden]
         if self.dataset == "peptides-func":
-            inputs = self.node_encoder(inputs)
-            inputs = self.edge_encoder(inputs)
+            inputs = self.encoder(inputs)
         elif self.dataset == "CIFAR10":
             inputs.x = self.linearEncoder2(inputs.x)
         

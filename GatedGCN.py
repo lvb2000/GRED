@@ -55,9 +55,6 @@ class GatedGCNLayer(pygnn.conv.MessagePassing):
         # Handling for Equivariant and Stable PE using LapPE
         # ICLR 2022 https://openreview.net/pdf?id=e95i1IHcWj
         pe_LapPE = batch.pe_EquivStableLapPE if self.EquivStablePE else None
-        print(pe_LapPE.shape)
-        if pe_LapPE is not None:
-            print("pe_LapPE has nan:", torch.isnan(pe_LapPE).any())
 
         x, e = self.propagate(edge_index,
                               Bx=Bx, Dx=Dx, Ex=Ex, Ce=Ce,
