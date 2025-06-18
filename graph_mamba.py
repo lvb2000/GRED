@@ -174,9 +174,9 @@ class GMBLayer(nn.Module):
         #----------- Local Convolution -----------#
         x_skip1 = batch.x
         local_out = self.local_model(pygdata.Batch( batch=batch,
-                                                    x=batch.x.float(),
+                                                    x=batch.x,
                                                     edge_index=batch.edge_index,
-                                                    edge_attr=batch.edge_attr.float(),
+                                                    edge_attr=batch.edge_attr,
                                                     pe_EquivStableLapPE=True))
         batch.edge_attr = local_out.edge_attr
         local = self.norm_local(x_skip1 + local_out.x)
