@@ -11,6 +11,7 @@ from torch_geometric.loader import DataLoader
 from torch.optim import Optimizer
 from torch import optim
 import math
+from seed import set_seed
 
 parser = argparse.ArgumentParser()
 #* model hyper-params
@@ -126,6 +127,8 @@ def get_cosine_schedule_with_warmup(
     return optim.lr_scheduler.LambdaLR(optimizer, lr_lambda, last_epoch)
 
 def main():
+    my_seed = 42
+    set_seed(my_seed)
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     print(f"Using device: {device}")
     loaders = create_loader()
