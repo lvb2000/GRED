@@ -154,14 +154,15 @@ class GMBLayer(nn.Module):
         super().__init__()
         #----------- Local Convolution -----------#
         self.local_model_type = local_model_type
-        if local_model_type == "GatedGCN":
-            self.local_model = GatedGCNLayer(dim_hidden, dim_hidden,
-                                             dropout=drop_rate,
-                                             residual=True,
-                                             equivstable_pe=False)
-        elif local_model_type == "GCNConv":
-            self.local_model = GCNConv(dim_hidden, dim_hidden)
-        self.norm_local = nn.LayerNorm(dim_hidden)
+        if local_model_type != "None":
+            if local_model_type == "GatedGCN":
+                self.local_model = GatedGCNLayer(dim_hidden, dim_hidden,
+                                                dropout=drop_rate,
+                                                residual=True,
+                                                equivstable_pe=False)
+            elif local_model_type == "GCNConv":
+                self.local_model = GCNConv(dim_hidden, dim_hidden)
+            self.norm_local = nn.LayerNorm(dim_hidden)
         #----------- Node multiset aggregation -----------#
         self.sum = sumNodeFeatures
         self.mlp1 = MLP1(dim_hidden, expand, drop_rate)
@@ -175,25 +176,27 @@ class GMBLayer(nn.Module):
         # MLP
         self.mlp2 = MLP2(dim_hidden,dim_hidden, drop_rate, act)
         #----------- Aggregate Local and Global Model -----------#
-        self.weighted_average = nn.Linear(2*dim_hidden, dim_hidden)
+        if local_model_type != "None":
+            self.weighted_average = nn.Linear(2*dim_hidden, dim_hidden)
 
     def forward(self, batch, dist_masks):
-        out_list = []
         #----------- Local Convolution -----------#
-        x_skip1 = batch.x
-        x = self.norm_local(batch.x)
-        if self.local_model_type == "GatedGCN":
-            local_out = self.local_model(pygdata.Batch( batch=batch,
-                                                    x=x,
-                                                    edge_index=batch.edge_index,
-                                                    edge_attr=batch.edge_attr,
-                                                    pe_EquivStableLapPE=False))
-            batch.edge_attr = local_out.edge_attr
-            local = x_skip1 + local_out.x
-        elif self.local_model_type == "GCNConv":
-            x = self.local_model(x,batch.edge_index)
-            local = x_skip1 + x
-        out_list.append(local)
+        if self.local_model_type != "None":
+            out_list = []
+            x_skip1 = batch.x
+            x = self.norm_local(batch.x)
+            if self.local_model_type == "GatedGCN":
+                local_out = self.local_model(pygdata.Batch( batch=batch,
+                                                        x=x,
+                                                        edge_index=batch.edge_index,
+                                                        edge_attr=batch.edge_attr,
+                                                        pe_EquivStableLapPE=False))
+                batch.edge_attr = local_out.edge_attr
+                local = x_skip1 + local_out.x
+            elif self.local_model_type == "GCNConv":
+                x = self.local_model(x,batch.edge_index)
+                local = x_skip1 + x
+            out_list.append(local)
         #----------- Node multiset aggregation -----------#
         x = self.sum(dist_masks,batch.x,batch.batch)
         # x represents the hidden state after aggregation
@@ -209,11 +212,15 @@ class GMBLayer(nn.Module):
         x = self.mlp2(x)
         x = x + x_skip3[0]
         #----------- Aggregate Local and Global Model -----------#
-        out_list.append(x)
-        # Concatenate local and global outputs along the feature dimension
-        concat_out = torch.cat(out_list, dim=-1)
-        # Reduce dimension using the weighted average linear layer
-        batch.x = self.weighted_average(concat_out)
+        if self.local_model_type != "None":
+            out_list.append(x)
+            # Concatenate local and global outputs along the feature dimension
+            #concat_out = torch.cat(out_list, dim=-1)
+            # Reduce dimension using the weighted average linear layer
+            #batch.x = self.weighted_average(concat_out)
+            batch.x = sum(out_list)
+        else:
+            batch.x = x
         return batch
 
 class Head(nn.Module):
