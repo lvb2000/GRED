@@ -291,6 +291,7 @@ class GPSModel(nn.Module):
             elif args.architecture == "LSTM":
                 layers.append(LSTMLayer(args.dim_h, args.dim_v, drop_rate=args.drop_rate))
         self.layers = nn.Sequential(*layers)
+        self.layer_norm = nn.LayerNorm(args.dim_h)
         #----------- Graph Predicition Head -----------#
         self.head = Head(args.dim_h, args.dim_out)
 
@@ -308,7 +309,7 @@ class GPSModel(nn.Module):
         #----------- Modified Graph Mamba Layer -----------#
         for layer in self.layers:
             inputs = layer(inputs, dist_mask)
-        
+        inputs.x = self.layer_norm(inputs.x)
         #----------- Graph Predicition Head -----------#
         inputs.x = self.head(inputs.x, inputs.batch)
         return inputs.x
