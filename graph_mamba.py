@@ -144,6 +144,7 @@ class GMBLayer(nn.Module):
     def __init__(
         self,
         local_model_type: str,
+        loc_glob_aggr: str,
         dim_hidden: int,
         d_state: int = 16,
         d_conv: int = 4,
@@ -154,6 +155,7 @@ class GMBLayer(nn.Module):
         super().__init__()
         #----------- Local Convolution -----------#
         self.local_model_type = local_model_type
+        self.loc_glob_aggr = loc_glob_aggr
         if local_model_type != "None":
             if local_model_type == "GatedGCN":
                 self.local_model = GatedGCNLayer(dim_hidden, dim_hidden,
@@ -177,7 +179,8 @@ class GMBLayer(nn.Module):
         self.mlp2 = MLP2(dim_hidden,dim_hidden, drop_rate, act)
         #----------- Aggregate Local and Global Model -----------#
         if local_model_type != "None":
-            self.weighted_average = nn.Linear(2*dim_hidden, dim_hidden)
+            if loc_glob_aggr == "MLP":
+                self.weighted_average = nn.Linear(2*dim_hidden, dim_hidden)
 
     def forward(self, batch, dist_masks):
         #----------- Local Convolution -----------#
@@ -214,11 +217,13 @@ class GMBLayer(nn.Module):
         #----------- Aggregate Local and Global Model -----------#
         if self.local_model_type != "None":
             out_list.append(x)
-            # Concatenate local and global outputs along the feature dimension
-            #concat_out = torch.cat(out_list, dim=-1)
-            # Reduce dimension using the weighted average linear layer
-            #batch.x = self.weighted_average(concat_out)
-            batch.x = sum(out_list)
+            if self.loc_glob_aggr == "MLP":
+                # Concatenate local and global outputs along the feature dimension
+                concat_out = torch.cat(out_list, dim=-1)
+                # Reduce dimension using the weighted average linear layer
+                batch.x = self.weighted_average(concat_out)
+            elif self.loc_glob_aggr == "sum":
+                batch.x = sum(out_list)
         else:
             batch.x = x
         return batch
@@ -287,7 +292,7 @@ class GPSModel(nn.Module):
         layers = []
         for i in range(args.num_layers):
             if args.architecture == "GRED-MAMBA":
-                layers.append(GMBLayer(args.local_model, args.dim_h, args.dim_v, drop_rate=args.drop_rate))
+                layers.append(GMBLayer(args.local_model,args.loc_glob_aggr, args.dim_h, args.dim_v, drop_rate=args.drop_rate))
             elif args.architecture == "LSTM":
                 layers.append(LSTMLayer(args.dim_h, args.dim_v, drop_rate=args.drop_rate))
         self.layers = nn.Sequential(*layers)

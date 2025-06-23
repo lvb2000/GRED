@@ -28,6 +28,7 @@ parser.add_argument("--architecture", default="GRED-MAMBA", type=str)
 parser.add_argument("--feature_dimension", default=9, type=int)
 parser.add_argument("--pos_enc", default=False, type=bool)
 parser.add_argument("--local_model", default="GatedGCN", type=str)
+parser.add_argument("--loc_glob_aggr", default="sum", type=str)
 
 #* training hyper-params
 parser.add_argument("--batch_accumulation", default=2, type=int)
