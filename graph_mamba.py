@@ -8,6 +8,8 @@ import torch_geometric.data as pygdata
 from torch_geometric.graphgym import BondEncoder, AtomEncoder
 from composed_encoders import concat_node_encoders
 from laplace_pos_encoder import LapPENodeEncoder
+from torch_geometric.nn import GCNConv
+
 
 
 class MLP1(nn.Module):
@@ -149,10 +151,7 @@ class GMBLayer(nn.Module):
     ):
         super().__init__()
         #----------- Local Convolution -----------#
-        self.local_model = GatedGCNLayer(dim_hidden, dim_hidden,
-                                             dropout=drop_rate,
-                                             residual=True,
-                                             equivstable_pe=False)
+        self.local_model = GCNConv(dim_hidden, dim_hidden)
         self.norm_local = nn.LayerNorm(dim_hidden)
         #----------- Node multiset aggregation -----------#
         self.sum = sumNodeFeatures
@@ -173,11 +172,7 @@ class GMBLayer(nn.Module):
         out_list = []
         #----------- Local Convolution -----------#
         x_skip1 = batch.x
-        local_out = self.local_model(pygdata.Batch( batch=batch,
-                                                    x=batch.x,
-                                                    edge_index=batch.edge_index,
-                                                    edge_attr=batch.edge_attr,
-                                                    pe_EquivStableLapPE=False))
+        local_out = self.local_model(self.local_model(x,batch.edge_index))
         batch.edge_attr = local_out.edge_attr
         local = self.norm_local(x_skip1 + local_out.x)
         out_list.append(local)
