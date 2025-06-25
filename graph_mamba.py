@@ -216,14 +216,15 @@ class GMBLayer(nn.Module):
         x = x + x_skip3[0]
         #----------- Aggregate Local and Global Model -----------#
         if self.local_model_type != "None":
-            out_list.append(self.layer_norm_final(x))
+            out_list.append(x)
             if self.loc_glob_aggr == "MLP":
                 # Concatenate local and global outputs along the feature dimension
                 concat_out = torch.cat(out_list, dim=-1)
                 # Reduce dimension using the weighted average linear layer
                 batch.x = self.weighted_average(concat_out)
             elif self.loc_glob_aggr == "sum":
-                batch.x = sum(out_list)
+                batch.x = self.layer_norm_final(sum(out_list))
+
         else:
             batch.x = x
         return batch
@@ -296,7 +297,7 @@ class GPSModel(nn.Module):
             elif args.architecture == "LSTM":
                 layers.append(LSTMLayer(args.dim_h, args.dim_v, drop_rate=args.drop_rate))
         self.layers = nn.Sequential(*layers)
-        self.layer_norm = nn.LayerNorm(args.dim_h)
+        #self.layer_norm = nn.LayerNorm(args.dim_h)
         #----------- Graph Predicition Head -----------#
         self.head = Head(args.dim_h, args.dim_out)
 
