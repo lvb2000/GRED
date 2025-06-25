@@ -197,7 +197,7 @@ class GMBLayer(nn.Module):
                 batch.edge_attr = local_out.edge_attr
                 local = x_skip1 + local_out.x
             elif self.local_model_type == "GCNConv":
-                x = self.local_model(x,batch.edge_index)
+                x = self.local_model(batch.x,batch.edge_index)
                 local = x_skip1 + x
             out_list.append(local)
         #----------- Node multiset aggregation -----------#
