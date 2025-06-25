@@ -179,6 +179,7 @@ class GMBLayer(nn.Module):
         self.mlp2 = MLP2(dim_hidden,dim_hidden, drop_rate, act)
         #----------- Aggregate Local and Global Model -----------#
         if local_model_type != "None":
+            self.layer_norm_final = nn.LayerNorm(dim_hidden)
             if loc_glob_aggr == "MLP":
                 self.weighted_average = nn.Linear(2*dim_hidden, dim_hidden)
 
@@ -187,18 +188,17 @@ class GMBLayer(nn.Module):
         if self.local_model_type != "None":
             out_list = []
             x_skip1 = batch.x
-            x = self.norm_local(batch.x)
             if self.local_model_type == "GatedGCN":
                 local_out = self.local_model(pygdata.Batch( batch=batch,
-                                                        x=x,
+                                                        x=batch.x,
                                                         edge_index=batch.edge_index,
                                                         edge_attr=batch.edge_attr,
                                                         pe_EquivStableLapPE=False))
                 batch.edge_attr = local_out.edge_attr
-                local = x_skip1 + local_out.x
+                local = x_skip1 + self.norm_local(local_out.x)
             elif self.local_model_type == "GCNConv":
                 x = self.local_model(x,batch.edge_index)
-                local = x_skip1 + x
+                local = x_skip1 + self.norm_local(x)
             out_list.append(local)
         #----------- Node multiset aggregation -----------#
         x = self.sum(dist_masks,batch.x,batch.batch)
@@ -223,7 +223,8 @@ class GMBLayer(nn.Module):
                 # Reduce dimension using the weighted average linear layer
                 batch.x = self.weighted_average(concat_out)
             elif self.loc_glob_aggr == "sum":
-                batch.x = sum(out_list)
+                x_sum = sum(out_list)
+                batch.x = self.layer_norm_final(x_sum)
         else:
             batch.x = x
         return batch
@@ -314,7 +315,7 @@ class GPSModel(nn.Module):
         #----------- Modified Graph Mamba Layer -----------#
         for layer in self.layers:
             inputs = layer(inputs, dist_mask)
-        inputs.x = self.layer_norm(inputs.x)
+        #inputs.x = self.layer_norm(inputs.x)
         #----------- Graph Predicition Head -----------#
         inputs.x = self.head(inputs.x, inputs.batch)
         return inputs.x
