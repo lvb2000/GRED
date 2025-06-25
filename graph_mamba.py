@@ -216,15 +216,14 @@ class GMBLayer(nn.Module):
         x = x + x_skip3[0]
         #----------- Aggregate Local and Global Model -----------#
         if self.local_model_type != "None":
-            out_list.append(x)
+            out_list.append(self.layer_norm_final(x))
             if self.loc_glob_aggr == "MLP":
                 # Concatenate local and global outputs along the feature dimension
                 concat_out = torch.cat(out_list, dim=-1)
                 # Reduce dimension using the weighted average linear layer
                 batch.x = self.weighted_average(concat_out)
             elif self.loc_glob_aggr == "sum":
-                x_sum = sum(out_list)
-                batch.x = self.layer_norm_final(x_sum)
+                batch.x = sum(out_list)
         else:
             batch.x = x
         return batch
