@@ -164,7 +164,6 @@ class GMBLayer(nn.Module):
                                                 equivstable_pe=False)
             elif local_model_type == "GCNConv":
                 self.local_model = GCNConv(dim_hidden, dim_hidden)
-            self.norm_local = nn.LayerNorm(dim_hidden)
         #----------- Node multiset aggregation -----------#
         self.sum = sumNodeFeatures
         self.mlp1 = MLP1(dim_hidden, expand, drop_rate)
@@ -175,6 +174,7 @@ class GMBLayer(nn.Module):
         #model_args = ModelArgs(d_model=dim_hidden,n_layer=4,d_state=d_state, d_conv=d_conv,expand=1)
         #self.self_attn = Mamba(model_args)
         self.self_attn = Mamba(d_model=dim_hidden, d_state=d_state, d_conv=d_conv, expand=1)
+        self.dropout = nn.Dropout(drop_rate)
         # MLP
         self.mlp2 = MLP2(dim_hidden,dim_hidden, drop_rate, act)
         #----------- Aggregate Local and Global Model -----------#
@@ -195,10 +195,10 @@ class GMBLayer(nn.Module):
                                                         edge_attr=batch.edge_attr,
                                                         pe_EquivStableLapPE=False))
                 batch.edge_attr = local_out.edge_attr
-                local = x_skip1 + self.norm_local(local_out.x)
+                local = x_skip1 + local_out.x
             elif self.local_model_type == "GCNConv":
                 x = self.local_model(x,batch.edge_index)
-                local = x_skip1 + self.norm_local(x)
+                local = x_skip1 + x
             out_list.append(local)
         #----------- Node multiset aggregation -----------#
         x = self.sum(dist_masks,batch.x,batch.batch)
@@ -210,20 +210,21 @@ class GMBLayer(nn.Module):
         x = torch.flip(x, dims=[1])
         x = self.layer_norm(x)
         x = self.self_attn(x)
+        x = self.dropout(x)
         x = x.transpose(0, 1)
         x = x[-1]
-        x = self.mlp2(x)
         x = x + x_skip3[0]
         #----------- Aggregate Local and Global Model -----------#
         if self.local_model_type != "None":
-            out_list.append(self.layer_norm_final(x))
+            out_list.append(x)
             if self.loc_glob_aggr == "MLP":
                 # Concatenate local and global outputs along the feature dimension
                 concat_out = torch.cat(out_list, dim=-1)
                 # Reduce dimension using the weighted average linear layer
                 batch.x = self.weighted_average(concat_out)
             elif self.loc_glob_aggr == "sum":
-                batch.x = sum(out_list)
+                x_sum = sum(out_list)
+                batch.x = self.mlp2(self.layer_norm_final(x_sum))
         else:
             batch.x = x
         return batch
