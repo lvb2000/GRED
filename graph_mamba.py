@@ -188,17 +188,18 @@ class GMBLayer(nn.Module):
         if self.local_model_type != "None":
             out_list = []
             x_skip1 = batch.x
+            x = self.layer_norm_local(batch.x)
             if self.local_model_type == "GatedGCN":
                 local_out = self.local_model(pygdata.Batch( batch=batch,
-                                                        x=batch.x,
+                                                        x=x,
                                                         edge_index=batch.edge_index,
                                                         edge_attr=batch.edge_attr,
                                                         pe_EquivStableLapPE=False))
                 batch.edge_attr = local_out.edge_attr
-                local = x_skip1 + self.layer_norm_local(local_out.x)
+                local = x_skip1 + local_out.x
             elif self.local_model_type == "GCNConv":
-                x = self.local_model(batch.x,batch.edge_index)
-                local = x_skip1 + self.layer_norm_local(x)
+                x = self.local_model(x,batch.edge_index)
+                local = x_skip1 + x
             out_list.append(local)
         #----------- Node multiset aggregation -----------#
         x = self.sum(dist_masks,batch.x,batch.batch)
