@@ -143,7 +143,7 @@ class GMBLayer(nn.Module):
 
     def __init__(
         self,
-        local_model_type: str,
+        local_model: bool,
         dim_hidden: int,
         d_state: int = 16,
         d_conv: int = 4,
@@ -153,15 +153,9 @@ class GMBLayer(nn.Module):
     ):
         super().__init__()
         #----------- Local Convolution -----------#
-        self.local_model_type = local_model_type
-        if local_model_type != "None":
-            if local_model_type == "GatedGCN":
-                self.local_model = GatedGCNLayer(dim_hidden, dim_hidden,
-                                                dropout=drop_rate,
-                                                residual=True,
-                                                equivstable_pe=False)
-            elif local_model_type == "GCNConv":
-                self.local_model = GCNConv(dim_hidden, dim_hidden)
+        self.local_model = local_model
+        if local_model:
+            self.local_model = GCNConv(dim_hidden, dim_hidden)
             self.norm_local = nn.LayerNorm(dim_hidden)
         #----------- Node multiset aggregation -----------#
         self.sum = sumNodeFeatures
@@ -175,27 +169,15 @@ class GMBLayer(nn.Module):
         self.self_attn = Mamba(d_model=dim_hidden, d_state=d_state, d_conv=d_conv, expand=1)
         # MLP
         self.mlp2 = MLP2(dim_hidden,dim_hidden, drop_rate, act)
-        #----------- Aggregate Local and Global Model -----------#
-        if local_model_type != "None":
-            self.weighted_average = nn.Linear(2*dim_hidden, dim_hidden)
 
     def forward(self, batch, dist_masks):
         #----------- Local Convolution -----------#
-        if self.local_model_type != "None":
+        if self.local_model:
             out_list = []
             x_skip1 = batch.x
             x = self.norm_local(batch.x)
-            if self.local_model_type == "GatedGCN":
-                local_out = self.local_model(pygdata.Batch( batch=batch,
-                                                        x=x,
-                                                        edge_index=batch.edge_index,
-                                                        edge_attr=batch.edge_attr,
-                                                        pe_EquivStableLapPE=False))
-                batch.edge_attr = local_out.edge_attr
-                local = x_skip1 + local_out.x
-            elif self.local_model_type == "GCNConv":
-                x = self.local_model(x,batch.edge_index)
-                local = x_skip1 + x
+            x = self.local_model(x,batch.edge_index)
+            local = x_skip1 + x
             out_list.append(local)
         #----------- Node multiset aggregation -----------#
         x = self.sum(dist_masks,batch.x,batch.batch)
@@ -212,12 +194,8 @@ class GMBLayer(nn.Module):
         x = self.mlp2(x)
         x = x + x_skip3[0]
         #----------- Aggregate Local and Global Model -----------#
-        if self.local_model_type != "None":
+        if self.local_model:
             out_list.append(x)
-            # Concatenate local and global outputs along the feature dimension
-            #concat_out = torch.cat(out_list, dim=-1)
-            # Reduce dimension using the weighted average linear layer
-            #batch.x = self.weighted_average(concat_out)
             batch.x = sum(out_list)
         else:
             batch.x = x

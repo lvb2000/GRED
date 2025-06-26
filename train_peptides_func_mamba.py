@@ -27,7 +27,8 @@ parser.add_argument("--act", default="full-glu", type=str)
 parser.add_argument("--architecture", default="GRED-MAMBA", type=str)
 parser.add_argument("--feature_dimension", default=9, type=int)
 parser.add_argument("--pos_enc", default=False, type=bool)
-parser.add_argument("--local_model", default="GatedGCN", type=str)
+parser.add_argument("--local_model", default=True, type=bool)
+parser.add_argument("--checkpoint_dir", type=str)
 
 #* training hyper-params
 parser.add_argument("--batch_accumulation", default=2, type=int)
@@ -38,7 +39,6 @@ parser.add_argument("--epochs", default=200, type=int)
 parser.add_argument("--batch_size", default=16, type=int)
 parser.add_argument("--warmup", default=0.05, type=float)
 parser.add_argument("--seed", default=0, type=int)
-parser.add_argument("--gpu", default="0", type=str)
 parser.add_argument("--logging_name", default="baseline", type=str)
 args = parser.parse_args()
 np.random.seed(args.seed)
@@ -127,8 +127,7 @@ def get_cosine_schedule_with_warmup(
     return optim.lr_scheduler.LambdaLR(optimizer, lr_lambda, last_epoch)
 
 def main():
-    my_seed = 42
-    set_seed(my_seed)
+    set_seed(args.seed)
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     print(f"Using device: {device}")
     loaders = create_loader()
@@ -270,14 +269,21 @@ def main():
         losses = np.array(losses)
         mean_loss = losses.mean()
 
+        best_score = 0
         if args.name == "peptides-func":
             ap_per_class = average_precision_score(trues, preds, average=None)
             mean_ap = ap_per_class.mean()
             log.LoggerUpdatePeptides(mean_loss, ap_per_class, mean_ap, e+1, type="val")
+            if best_score < mean_ap:
+                best_score = mean_ap
+                log.LoggerLogModel(model,"Average Precision",best_score,e,args.checkpoint_dir)
         elif args.name in ['MNIST', 'CIFAR10']:
             # Calculate accuracy
             accuracy = np.mean(preds == trues)
             log.LoggerUpdatePictures(mean_loss, accuracy, e+1, type="val")
+            if best_score < accuracy:
+                best_score = accuracy
+                log.LoggerLogModel(model,"Accuracy",best_score,e,args.checkpoint_dir)
 
     log.LoggerEnd()
 
