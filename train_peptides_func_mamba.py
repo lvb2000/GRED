@@ -28,8 +28,7 @@ parser.add_argument("--architecture", default="GRED-MAMBA", type=str)
 parser.add_argument("--feature_dimension", default=9, type=int)
 parser.add_argument("--pos_enc", default=False, type=bool)
 parser.add_argument("--local_model", default=True, type=bool)
-parser.add_argument("--checkpoint_dir",default="baseline", type=str)
-
+parser.add_argument("--checkpoint_dir", type=str)
 #* training hyper-params
 parser.add_argument("--batch_accumulation", default=2, type=int)
 parser.add_argument("--base_lr", default=0.001, type=float)
@@ -41,7 +40,6 @@ parser.add_argument("--warmup", default=0.05, type=float)
 parser.add_argument("--seed", default=0, type=int)
 parser.add_argument("--logging_name", default="baseline", type=str)
 args = parser.parse_args()
-np.random.seed(args.seed)
 
 
 def compute_loss(pred, true):

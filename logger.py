@@ -5,7 +5,7 @@ import os
 def LoggerInit(device,args,total_params):
     wandb.init(
       # Set the project where this run will be logged
-      project="GRED-Mamba-Tuning",
+      project="GRED-Mamba-Results",
       # We pass a run name (otherwise it’ll be randomly assigned, like sunshine-lollypop-10)
       name=args.logging_name,
       # Track hyperparameters and run metadata
