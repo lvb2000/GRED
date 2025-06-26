@@ -32,8 +32,10 @@ def LoggerInit(device,args,total_params):
     })
 
 def LoggerLogModel(model, metric_name, metric_score, epoch, checkpoint_dir):
-    if not os.path.exists(checkpoint_dir):
-        os.makedirs(checkpoint_dir, exist_ok=True)
+    if os.path.exists(checkpoint_dir):
+        import shutil
+        shutil.rmtree(checkpoint_dir)
+    os.makedirs(checkpoint_dir, exist_ok=True)
     model_save_path = os.path.join(checkpoint_dir, f"best_model_epoch_{epoch+1}.pth")
     torch.save(model.state_dict(), model_save_path)
     artifact = wandb.Artifact(
