@@ -28,7 +28,7 @@ parser.add_argument("--architecture", default="GRED-MAMBA", type=str)
 parser.add_argument("--feature_dimension", default=9, type=int)
 parser.add_argument("--pos_enc", default=False, type=bool)
 parser.add_argument("--local_model", default=True, type=bool)
-parser.add_argument("--checkpoint_dir", type=str)
+parser.add_argument("--checkpoint_dir",default="baseline", type=str)
 
 #* training hyper-params
 parser.add_argument("--batch_accumulation", default=2, type=int)
