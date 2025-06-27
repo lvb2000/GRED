@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
-from mamba import Mamba,ModelArgs
-#from mamba_ssm import Mamba
+#from mamba import Mamba,ModelArgs
+from mamba_ssm import Mamba
 from torch_geometric.utils import to_dense_batch
 from GatedGCN import GatedGCNLayer
 import torch_geometric.data as pygdata
