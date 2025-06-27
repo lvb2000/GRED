@@ -250,6 +250,7 @@ def main():
                 loss, pred_score = compute_loss(pred_batch, batch.y)
                 _true = batch.y.detach().cpu().numpy()
                 _pred = pred_score.detach().cpu().numpy()
+                _loss = loss.detach().cpu().numpy()
                 if args.name in ['MNIST', 'CIFAR10']:
                     _pred = np.argmax(_pred, axis=1)
                 trues.append(_true)

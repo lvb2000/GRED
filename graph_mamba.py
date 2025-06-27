@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
-#from mamba import Mamba,ModelArgs
-from mamba_ssm import Mamba
+from mamba import Mamba,ModelArgs
+#from mamba_ssm import Mamba
 from torch_geometric.utils import to_dense_batch
 from GatedGCN import GatedGCNLayer
 import torch_geometric.data as pygdata
@@ -164,9 +164,9 @@ class GMBLayer(nn.Module):
         # Norm
         self.layer_norm = nn.LayerNorm(dim_hidden)
         # Mamba
-        #model_args = ModelArgs(d_model=dim_hidden,n_layer=4,d_state=d_state, d_conv=d_conv,expand=1)
-        #self.self_attn = Mamba(model_args)
-        self.self_attn = Mamba(d_model=dim_hidden, d_state=d_state, d_conv=d_conv, expand=1)
+        model_args = ModelArgs(d_model=dim_hidden,n_layer=4,d_state=d_state, d_conv=d_conv,expand=1)
+        self.self_attn = Mamba(model_args)
+        #self.self_attn = Mamba(d_model=dim_hidden, d_state=d_state, d_conv=d_conv, expand=1)
         # MLP
         self.mlp2 = MLP2(dim_hidden,dim_hidden, drop_rate, act)
 
