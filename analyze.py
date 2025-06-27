@@ -131,4 +131,4 @@ if __name__ == "__main__":
     model = load_checkpoint(model)
     print_model_structure(model)
     loaders = create_loader()
-    #test_model(model.to(device),loaders[2],device)
+    test_model(model.to(device),loaders[2],device)
