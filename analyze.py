@@ -69,3 +69,4 @@ def print_model_structure(model):
 if __name__ == "__main__":
     model = GPSModel(args)
     model = load_checkpoint(model)
+    print_model_structure(model)
