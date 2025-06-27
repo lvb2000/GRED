@@ -46,7 +46,7 @@ def preformat_GNNBenchmarkDataset(dataset_dir, name):
                    f"GNNBenchmarkDataset is not supported.")
 
     dataset = join_dataset_splits(
-        [GNNBenchmarkDataset(root=dataset_dir, name=name, split=split,transform=ToDense(150))
+        [GNNBenchmarkDataset(root=dataset_dir, name=name, split=split)
          for split in ['train', 'val', 'test']]
     )
     pre_transform_in_memory(dataset, partial(compute_dist_mask))
