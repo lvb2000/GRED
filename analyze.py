@@ -31,7 +31,7 @@ parser.add_argument("--logging_name", default="baseline", type=str)
 args = parser.parse_args()
 
 
-def load_checkpoint(model_class):
+def load_checkpoint(model):
     """
     Loads a torch model from a file in the 'Checkpoints' folder.
 
@@ -44,7 +44,6 @@ def load_checkpoint(model_class):
     """
     checkpoint_path = input("Enter the path to the checkpoint file: ")
     checkpoint = torch.load(checkpoint_path, map_location=torch.device('cpu'))
-    model = model_class()
     model.load_state_dict(checkpoint)
     model.eval()
     return model
