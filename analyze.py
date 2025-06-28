@@ -136,14 +136,15 @@ def test_model(model,loader,device):
 
 def analyze_B(B):
     seq_len = 40
-    l2_norms_per_token_per_sample = torch.linalg.norm(B, dim=-1)
+    print(f"Shape of B: {B.shape}")
+    l2_norms_per_token_per_sample = torch.linalg.norm(B, dim=1)
     print(f"Shape after calculating L2 norm for each token: {l2_norms_per_token_per_sample.shape}")
     average_l2_norm_over_batch = torch.mean(l2_norms_per_token_per_sample, dim=0)
     print(f"Final shape (average L2 norm per sequence position): {average_l2_norm_over_batch.shape}")
     print(f"Average L2 Norm values over sequence: \n{average_l2_norm_over_batch}")
 
     plt.figure(figsize=(10, 6))
-    plt.plot(range(seq_len), average_l2_norm_over_batch.numpy())
+    plt.plot(range(seq_len), average_l2_norm_over_batch.detach().cpu().numpy())
     plt.title('Average L2 Norm of B Matrix over Sequence Length')
     plt.xlabel('Sequence Position')
     plt.ylabel('Average L2 Norm Magnitude')
