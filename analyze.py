@@ -155,7 +155,7 @@ def analyze_B(dt,A_log,B,u):
     input_l2_norm = torch.mean(input_l2_norm, dim=0)
     print(f"Final shape (average L2 norm per sequence position): {input_l2_norm.shape}")
     print(f"Average L2 Norm values over sequence: \n{input_l2_norm}")
-    x = torch.zeros((args.batch_size, args.dim_h, args.dim_v), device=deltaA.device)
+    x = torch.zeros((u.shape[0], args.dim_h, args.dim_v), device=deltaA.device)
     state_norm = []
     input_norm = []
     for i in range(seqlen):
