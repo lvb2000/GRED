@@ -189,14 +189,12 @@ def test_model_matrix(model, loader, device):
             all_state_norms.append(state_norm)
             all_input_norms.append(input_norm)
 
-    # Stack and compute mean
-    state_norm_arr = np.array(all_state_norms)
-    input_norm_arr = np.array(all_input_norms)
-    # Stack and compute mean, but keep the original dimensions (do not reduce all axes)
+    # Stack along the batch dimension, but do not reduce further
     state_norm_arr = np.stack(all_state_norms, axis=0)
     input_norm_arr = np.stack(all_input_norms, axis=0)
-    mean_state_norm = np.mean(state_norm_arr)
-    mean_input_norm = np.mean(input_norm_arr)
+    # Now, mean only over the batch dimension (axis=0), keeping the rest of the dimensions
+    mean_state_norm = np.mean(state_norm_arr, axis=0)
+    mean_input_norm = np.mean(input_norm_arr, axis=0)
     print(f"Mean state_norm over test set: {mean_state_norm:.4f}")
     print(f"Mean input_norm over test set: {mean_input_norm:.4f}")
 
