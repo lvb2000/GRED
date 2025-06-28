@@ -144,7 +144,7 @@ def analyze_B(dt,B,u):
     print(f"Final shape (average L2 norm per sequence position): {average_l2_norm_over_batch.shape}")
     print(f"Average L2 Norm values over sequence: \n{average_l2_norm_over_batch}")
     dt = rearrange(dt, "b d l -> b l d", l=seqlen)
-    B = rearrange(B, "b dstate l -> b dstate l", l=seqlen).contiguous()
+    B = rearrange(B, "b dstate l -> b l dstate", l=seqlen).contiguous()
     u = rearrange(u, "b d l -> b l d", l=seqlen)
     deltaB_u = einsum(dt, B, u, 'b l d_in, b l n, b l d_in -> b l d_in n')
     print(f"Shape of deltaB: {deltaB_u.shape}")
