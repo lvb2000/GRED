@@ -1,9 +1,10 @@
 import torch
 import argparse
-from graph_mamba import GPSModel
-from train_peptides_func_mamba import create_loader, compute_loss
+from graph_mamba_first_layer import GPSModel
+from train_peptides_func_mamba import compute_loss, create_loader
 import numpy as np
 from sklearn.metrics import average_precision_score
+import matplotlib.pyplot as plt
 
 parser = argparse.ArgumentParser()
 #* model hyper-params
@@ -34,6 +35,7 @@ parser.add_argument("--logging_name", default="baseline", type=str)
 args = parser.parse_args()
 
 
+
 def load_checkpoint(model):
     """
     Loads a torch model from a file in the 'Checkpoints' folder.
@@ -45,10 +47,18 @@ def load_checkpoint(model):
     Returns:
         model: The loaded model with weights restored.
     """
-    checkpoint_path = input("Enter the path to the checkpoint file: ")
+    #checkpoint_path = input("Enter the path to the checkpoint file: ")
+    checkpoint_path="Checkpoints/best_model_epoch_132.pth"
     checkpoint = torch.load(checkpoint_path, map_location=torch.device('cpu'))
-    model.load_state_dict(checkpoint)
+    #for idx, (k, v) in enumerate(checkpoint.items()):
+    #    print(f"Index: {idx}, Key: {k}")
+    model_state_dict = model.state_dict()
+    filtered_state_dict = {k: v for idx, (k, v) in enumerate(checkpoint.items()) if idx <= 29}
+    model_state_dict.update(filtered_state_dict)
+    #model.load_state_dict(checkpoint)
+    model.load_state_dict(model_state_dict, strict=False)
     model.eval()
+    print("Model loaded with partial weights successfully!")
     return model
 
 def print_model_structure(model):
@@ -124,6 +134,42 @@ def test_model(model,loader,device):
         print(f"Mean loss: {mean_loss:.4f}")
         print(f"Accuracy: {accuracy:.4f}")
 
+def analyze_B(B):
+    seq_len = 40
+    l2_norms_per_token_per_sample = torch.linalg.norm(B, dim=-1)
+    print(f"Shape after calculating L2 norm for each token: {l2_norms_per_token_per_sample.shape}")
+    average_l2_norm_over_batch = torch.mean(l2_norms_per_token_per_sample, dim=0)
+    print(f"Final shape (average L2 norm per sequence position): {average_l2_norm_over_batch.shape}")
+    print(f"Average L2 Norm values over sequence: \n{average_l2_norm_over_batch}")
+
+    plt.figure(figsize=(10, 6))
+    plt.plot(range(seq_len), average_l2_norm_over_batch.numpy())
+    plt.title('Average L2 Norm of B Matrix over Sequence Length')
+    plt.xlabel('Sequence Position')
+    plt.ylabel('Average L2 Norm Magnitude')
+    plt.grid(True)
+    plt.show()
+
+def test_model_matrix(model,loader,device):
+    with torch.no_grad():
+        for batch in loader:
+            # Calculate the max hops in the current batch
+            max_hops = max(batch.k_max)
+            # Calculate the largest number of nodes in the current batch
+            max_nodes = max(batch.graph_nodes)
+            batch_size = len(batch.dist_mask)
+            dist_mask = np.zeros((batch_size, max_hops, max_nodes, max_nodes), dtype=np.bool_)
+            for idx in range(batch_size):
+                # build up full distance mask for every graph in current batch
+                dist_mask[idx, :batch.dist_mask[idx].shape[0], :batch.dist_mask[idx].shape[1], :batch.dist_mask[idx].shape[2]] = batch.dist_mask[idx]
+            if not args.max_hops:
+                dist_mask= dist_mask[:, :args.num_hops]
+            dist_mask = torch.from_numpy(dist_mask).to(device)
+            batch.to(device)
+            
+            # predict
+            dt,A,B,C = model(batch,dist_mask,device)
+            analyze_B(B)
 
 if __name__ == "__main__":
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
