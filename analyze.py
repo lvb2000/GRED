@@ -47,8 +47,8 @@ def load_checkpoint(model):
     Returns:
         model: The loaded model with weights restored.
     """
-    #checkpoint_path = input("Enter the path to the checkpoint file: ")
-    checkpoint_path="Checkpoints/best_model_epoch_132.pth"
+    checkpoint_path = input("Enter the path to the checkpoint file: ")
+    #checkpoint_path="Checkpoints/best_model_epoch_132.pth"
     checkpoint = torch.load(checkpoint_path, map_location=torch.device('cpu'))
     #for idx, (k, v) in enumerate(checkpoint.items()):
     #    print(f"Index: {idx}, Key: {k}")
