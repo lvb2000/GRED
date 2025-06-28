@@ -148,7 +148,7 @@ def analyze_B(dt,B,u):
     u = rearrange(u, "b d l -> b l d", l=seqlen)
     deltaB_u = einsum(dt, B, u, 'b l d_in, b l n, b l d_in -> b l d_in n')
     print(f"Shape of deltaB: {deltaB_u.shape}")
-    l2_norms_per_token_per_sample = torch.linalg.norm(B, dim=3)
+    l2_norms_per_token_per_sample = torch.linalg.norm(deltaB_u, dim=3)
     average_l2_norm_over_batch = torch.mean(l2_norms_per_token_per_sample, dim=2)
     average_l2_norm_over_batch = torch.mean(average_l2_norm_over_batch, dim=0)
     print(f"Final shape (average L2 norm per sequence position): {average_l2_norm_over_batch.shape}")
