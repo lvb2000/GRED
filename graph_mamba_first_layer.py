@@ -223,7 +223,7 @@ class Mamba_input(nn.Module):
         B = rearrange(B, "(b l) dstate -> b dstate l", l=seqlen).contiguous()
         C = rearrange(C, "(b l) dstate -> b dstate l", l=seqlen).contiguous()
 
-        return dt,A,B,C
+        return dt,A,B,C,x
 
 # Graph Mamba Layer
 class GMBLayer(nn.Module):
@@ -271,8 +271,8 @@ class GMBLayer(nn.Module):
         x = x.transpose(0, 1)
         x = torch.flip(x, dims=[1])
         x = self.layer_norm(x)
-        dt,A,B,C = self.self_attn(x)
-        return dt,A,B,C
+        dt,A,B,C,x = self.self_attn(x)
+        return dt,A,B,C,x
 
 class FeatureEncoder(torch.nn.Module):
     """
@@ -330,6 +330,6 @@ class GPSModel(nn.Module):
         inputs.x = self.linearEncoder(self.gelu(inputs.x))
         
         #----------- Modified Graph Mamba Layer -----------#
-        dt,A,B,C = self.layer(inputs, dist_mask)
-        return dt,A,B,C
+        dt,A,B,C,x = self.layer(inputs, dist_mask)
+        return dt,A,B,C,x
             

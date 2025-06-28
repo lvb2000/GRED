@@ -4,7 +4,7 @@ from graph_mamba_first_layer import GPSModel
 from train_peptides_func_mamba import compute_loss, create_loader
 import numpy as np
 from sklearn.metrics import average_precision_score
-from einops import einsum
+from einops import einsum, rearrange
 
 parser = argparse.ArgumentParser()
 #* model hyper-params
@@ -135,16 +135,24 @@ def test_model(model,loader,device):
         print(f"Accuracy: {accuracy:.4f}")
 
 
-def analyze_B(dt,B,x):
-    seq_len = 40
+def analyze_B(dt,B,u):
+    seqlen = 40
     print(f"Shape of B: {B.shape}")
     l2_norms_per_token_per_sample = torch.linalg.norm(B, dim=1)
     print(f"Shape after calculating L2 norm for each token: {l2_norms_per_token_per_sample.shape}")
     average_l2_norm_over_batch = torch.mean(l2_norms_per_token_per_sample, dim=0)
     print(f"Final shape (average L2 norm per sequence position): {average_l2_norm_over_batch.shape}")
     print(f"Average L2 Norm values over sequence: \n{average_l2_norm_over_batch}")
-    deltaB = einsum(dt, B, x, 'b l d_in, b l n, b l d_in -> b l d_in n')
-    print(f"Shape of deltaB: {deltaB.shape}")
+    dt = rearrange(dt, "b d l -> b l d", l=seqlen)
+    B = rearrange(B, "b dstate l -> b dstate l", l=seqlen).contiguous()
+    u = rearrange(u, "b d l -> b l d", l=seqlen)
+    deltaB_u = einsum(dt, B, u, 'b l d_in, b l n, b l d_in -> b l d_in n')
+    print(f"Shape of deltaB: {deltaB_u.shape}")
+    l2_norms_per_token_per_sample = torch.linalg.norm(B, dim=3)
+    average_l2_norm_over_batch = torch.mean(l2_norms_per_token_per_sample, dim=2)
+    average_l2_norm_over_batch = torch.mean(average_l2_norm_over_batch, dim=0)
+    print(f"Final shape (average L2 norm per sequence position): {average_l2_norm_over_batch.shape}")
+    print(f"Average L2 Norm values over sequence: \n{average_l2_norm_over_batch}")
 
 def test_model_matrix(model,loader,device):
     with torch.no_grad():
@@ -164,8 +172,8 @@ def test_model_matrix(model,loader,device):
             batch.to(device)
             
             # predict
-            dt,A,B,C = model(batch,dist_mask,device)
-            analyze_B(dt,B,batch.x)
+            dt,A,B,C,u = model(batch,dist_mask,device)
+            analyze_B(dt,B,u)
 
 if __name__ == "__main__":
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
