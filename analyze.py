@@ -137,24 +137,15 @@ def test_model(model,loader,device):
 
 def analyze_B(dt,A_log,B,u):
     seqlen = 40
-    print(f"Shape of B: {B.shape}")
-    l2_norms_per_token_per_sample = torch.linalg.norm(B, dim=1)
-    print(f"Shape after calculating L2 norm for each token: {l2_norms_per_token_per_sample.shape}")
-    average_l2_norm_over_batch = torch.mean(l2_norms_per_token_per_sample, dim=0)
-    print(f"Final shape (average L2 norm per sequence position): {average_l2_norm_over_batch.shape}")
-    print(f"Average L2 Norm values over sequence: \n{average_l2_norm_over_batch}")
     dt = rearrange(dt, "b d l -> b l d", l=seqlen)
     B = rearrange(B, "b dstate l -> b l dstate", l=seqlen).contiguous()
     u = rearrange(u, "b d l -> b l d", l=seqlen)
     A = -torch.exp(A_log.float())
     deltaA = torch.exp(einsum(dt, A, 'b l d_in, d_in n -> b l d_in n'))
     deltaB_u = einsum(dt, B, u, 'b l d_in, b l n, b l d_in -> b l d_in n')
-    print(f"Shape of deltaB: {deltaB_u.shape}")
     l2_norms_per_token_per_sample = torch.linalg.norm(deltaB_u, dim=3)
     input_l2_norm = torch.mean(l2_norms_per_token_per_sample, dim=2)
     input_l2_norm = torch.mean(input_l2_norm, dim=0)
-    print(f"Final shape (average L2 norm per sequence position): {input_l2_norm.shape}")
-    print(f"Average L2 Norm values over sequence: \n{input_l2_norm}")
     x = torch.zeros((u.shape[0], args.dim_h, args.dim_v), device=deltaA.device)
     state_norm = []
     input_norm = []
@@ -169,12 +160,12 @@ def analyze_B(dt,A_log,B,u):
         state_norm.append((state_l2_norm/x_l2_norm).item())
         input_norm.append(((x_l2_norm+input_l2_norm[i])/x_l2_norm).item())
         x = state_update + deltaB_u[:, i]
-    print(f"State norm list: {state_norm}")
-    print(f"Input norm list: {input_norm}")
-
     
+    return state_norm, input_norm
 
-def test_model_matrix(model,loader,device):
+def test_model_matrix(model, loader, device):
+    all_state_norms = []
+    all_input_norms = []
     with torch.no_grad():
         for batch in loader:
             # Calculate the max hops in the current batch
@@ -187,14 +178,24 @@ def test_model_matrix(model,loader,device):
                 # build up full distance mask for every graph in current batch
                 dist_mask[idx, :batch.dist_mask[idx].shape[0], :batch.dist_mask[idx].shape[1], :batch.dist_mask[idx].shape[2]] = batch.dist_mask[idx]
             if not args.max_hops:
-                dist_mask= dist_mask[:, :args.num_hops]
+                dist_mask = dist_mask[:, :args.num_hops]
             dist_mask = torch.from_numpy(dist_mask).to(device)
             batch.to(device)
-            
+
             # predict
-            dt,A,B,C,u = model(batch,dist_mask,device)
-            analyze_B(dt,A,B,u)
-            break
+            dt, A, B, C, u = model(batch, dist_mask, device)
+            state_norm, input_norm = analyze_B(dt, A, B, u)
+            all_state_norms.append(state_norm)
+            all_input_norms.append(input_norm)
+
+    # Stack and compute mean
+    state_norm_arr = np.array(all_state_norms)
+    input_norm_arr = np.array(all_input_norms)
+    mean_state_norm = np.mean(state_norm_arr)
+    mean_input_norm = np.mean(input_norm_arr)
+    print(f"Mean state_norm over test set: {mean_state_norm:.4f}")
+    print(f"Mean input_norm over test set: {mean_input_norm:.4f}")
+
 
 if __name__ == "__main__":
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
