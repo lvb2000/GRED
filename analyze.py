@@ -195,8 +195,8 @@ def test_model_matrix(model, loader, device):
     # Now, mean only over the batch dimension (axis=0), keeping the rest of the dimensions
     mean_state_norm = np.mean(state_norm_arr, axis=0)
     mean_input_norm = np.mean(input_norm_arr, axis=0)
-    print(f"Mean state_norm over test set: {mean_state_norm:.4f}")
-    print(f"Mean input_norm over test set: {mean_input_norm:.4f}")
+    print(f"Mean state_norm over test set: {mean_state_norm}")
+    print(f"Mean input_norm over test set: {mean_input_norm}")
 
 
 if __name__ == "__main__":
