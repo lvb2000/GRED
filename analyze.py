@@ -157,7 +157,7 @@ def analyze_B(dt,A_log,B,u):
         state_l2_norm = torch.linalg.norm(state_update, dim=2)
         state_l2_norm = torch.mean(state_l2_norm, dim=1)
         state_l2_norm = torch.mean(state_l2_norm, dim=0)
-        if i is not 0:
+        if i != 0:
             state_norm.append((state_l2_norm/x_l2_norm).item())
             input_norm.append(((x_l2_norm+input_l2_norm[i])/x_l2_norm).item())
         x = state_update + deltaB_u[:, i]
