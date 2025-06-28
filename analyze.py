@@ -136,9 +136,10 @@ def test_model(model,loader,device):
 
 
 def analyze_svd(A):
-    U,S,Vh = torch.linalg.svd(A)
+    _,S,_ = torch.linalg.svd(A)
     print(f"Singular values shape: {S.shape}")
     mean_S = torch.mean(S, dim=0)
+    mean_S = torch.mean(mean_S, dim=1)
     print(f"Singular values shape: {mean_S.shape}")
     print(mean_S)
 
