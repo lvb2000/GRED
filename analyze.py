@@ -157,8 +157,9 @@ def analyze_B(dt,A_log,B,u):
         state_l2_norm = torch.linalg.norm(state_update, dim=2)
         state_l2_norm = torch.mean(state_l2_norm, dim=1)
         state_l2_norm = torch.mean(state_l2_norm, dim=0)
-        state_norm.append((state_l2_norm/x_l2_norm).item())
-        input_norm.append(((x_l2_norm+input_l2_norm[i])/x_l2_norm).item())
+        if i is not 0:
+            state_norm.append((state_l2_norm/x_l2_norm).item())
+            input_norm.append(((x_l2_norm+input_l2_norm[i])/x_l2_norm).item())
         x = state_update + deltaB_u[:, i]
     
     return state_norm, input_norm
@@ -191,6 +192,9 @@ def test_model_matrix(model, loader, device):
     # Stack and compute mean
     state_norm_arr = np.array(all_state_norms)
     input_norm_arr = np.array(all_input_norms)
+    # Stack and compute mean, but keep the original dimensions (do not reduce all axes)
+    state_norm_arr = np.stack(all_state_norms, axis=0)
+    input_norm_arr = np.stack(all_input_norms, axis=0)
     mean_state_norm = np.mean(state_norm_arr)
     mean_input_norm = np.mean(input_norm_arr)
     print(f"Mean state_norm over test set: {mean_state_norm:.4f}")
