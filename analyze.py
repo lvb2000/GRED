@@ -135,7 +135,7 @@ def test_model(model,loader,device):
         print(f"Accuracy: {accuracy:.4f}")
 
 
-def analyze_B(dt,B,u):
+def analyze_B(dt,A_log,B,u):
     seqlen = 40
     print(f"Shape of B: {B.shape}")
     l2_norms_per_token_per_sample = torch.linalg.norm(B, dim=1)
@@ -146,13 +146,33 @@ def analyze_B(dt,B,u):
     dt = rearrange(dt, "b d l -> b l d", l=seqlen)
     B = rearrange(B, "b dstate l -> b l dstate", l=seqlen).contiguous()
     u = rearrange(u, "b d l -> b l d", l=seqlen)
+    A = -torch.exp(A_log.float())
+    deltaA = torch.exp(einsum(dt, A, 'b l d_in, d_in n -> b l d_in n'))
     deltaB_u = einsum(dt, B, u, 'b l d_in, b l n, b l d_in -> b l d_in n')
     print(f"Shape of deltaB: {deltaB_u.shape}")
     l2_norms_per_token_per_sample = torch.linalg.norm(deltaB_u, dim=3)
-    average_l2_norm_over_batch = torch.mean(l2_norms_per_token_per_sample, dim=2)
-    average_l2_norm_over_batch = torch.mean(average_l2_norm_over_batch, dim=0)
-    print(f"Final shape (average L2 norm per sequence position): {average_l2_norm_over_batch.shape}")
-    print(f"Average L2 Norm values over sequence: \n{average_l2_norm_over_batch}")
+    input_l2_norm = torch.mean(l2_norms_per_token_per_sample, dim=2)
+    input_l2_norm = torch.mean(input_l2_norm, dim=0)
+    print(f"Final shape (average L2 norm per sequence position): {input_l2_norm.shape}")
+    print(f"Average L2 Norm values over sequence: \n{input_l2_norm}")
+    x = torch.zeros((args.batch_size, args.dim_h, args.dim_v), device=deltaA.device)
+    state_norm = []
+    input_norm = []
+    for i in range(seqlen):
+        x_l2_norm = torch.linalg.norm(x, dim=2)
+        x_l2_norm = torch.mean(x_l2_norm, dim=1)
+        x_l2_norm = torch.mean(x_l2_norm, dim=0)
+        state_update = deltaA[:, i] * x
+        state_l2_norm = torch.linalg.norm(state_update, dim=2)
+        state_l2_norm = torch.mean(state_l2_norm, dim=1)
+        state_l2_norm = torch.mean(state_l2_norm, dim=0)
+        state_norm.append(state_l2_norm/x_l2_norm)
+        input_norm.append((x_l2_norm+input_l2_norm[i])/x_l2_norm)
+        x = state_update + deltaB_u[:, i]
+    print(f"State norm list: {state_norm}")
+    print(f"Input norm list: {input_norm}")
+
+    
 
 def test_model_matrix(model,loader,device):
     with torch.no_grad():
@@ -173,7 +193,8 @@ def test_model_matrix(model,loader,device):
             
             # predict
             dt,A,B,C,u = model(batch,dist_mask,device)
-            analyze_B(dt,B,u)
+            analyze_B(dt,A,B,u)
+            break
 
 if __name__ == "__main__":
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
