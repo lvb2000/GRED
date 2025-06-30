@@ -263,6 +263,6 @@ if __name__ == "__main__":
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     model = GPSModel(args)
     model = load_checkpoint(model)
-    print_model_structure(model)
+    # print_model_structure(model)
     loaders = create_loader()
     test_model_matrix(model.to(device),loaders[2],device)
