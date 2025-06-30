@@ -207,9 +207,9 @@ def analyze_B(dt,A_log,B,u):
     B = rearrange(B, "b dstate l -> b l dstate", l=seqlen).contiguous()
     u = rearrange(u, "b d l -> b l d", l=seqlen)
     A = -torch.exp(A_log.float())
-    spectral_norm_A = analyze_svd(A, name="A")
+    analyze_svd(A, name="A")
     deltaA = torch.exp(einsum(dt, A, 'b l d_in, d_in n -> b l d_in n'))
-    spectral_norm_deltaA = analyze_svd(deltaA[0,0,:], name="deltaA[0,0]")
+    analyze_svd(deltaA[0,0,:], name="deltaA[0,0]")
     deltaB_u = einsum(dt, B, u, 'b l d_in, b l n, b l d_in -> b l d_in n')
     l2_norms_per_token_per_sample = torch.linalg.norm(deltaB_u, dim=3)
     input_l2_norm = torch.mean(l2_norms_per_token_per_sample, dim=2)  # shape: (batch_size, seqlen)
@@ -258,12 +258,12 @@ def test_model_matrix(model, loader, device):
             # predict
             dt, A, B, C, u = model(batch, dist_mask, device)
             state_norm, input_norm, input_norm_all = analyze_B(dt, A, B, u)
-            for i, norm_list in enumerate(input_norm_all):
-                print(f"Sample {i} input_norm over test set: {norm_list}")
-            # Find the sample with the largest variance in input_norm_all and print its norm_list again
+            # Find the samples with the largest and second largest variance in input_norm_all
             variances = [np.var(norm_list) for norm_list in input_norm_all]
             max_var_idx = int(np.argmax(variances))
+            second_max_var_idx = int(np.argsort(variances)[-2])
             print(f"Sample {max_var_idx} input_norm over test set: {input_norm_all[max_var_idx]}")
+            print(f"Sample {second_max_var_idx} input_norm over test set: {input_norm_all[second_max_var_idx]}")
             all_state_norms.append(state_norm)
             all_input_norms.append(input_norm)
             all_input_norms_per_sample.append(input_norm_all)
