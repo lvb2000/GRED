@@ -168,37 +168,38 @@ def analyze_B(dt,A_log,B,u):
     spectral_norm_deltaA = analyze_svd(deltaA[0,0,:], name="deltaA[0,0]")
     deltaB_u = einsum(dt, B, u, 'b l d_in, b l n, b l d_in -> b l d_in n')
     l2_norms_per_token_per_sample = torch.linalg.norm(deltaB_u, dim=3)
+    # Save the random state before sampling indices
+    rand_state = np.random.get_state()
+    rand1_idx0 = np.random.randint(0, l2_norms_per_token_per_sample.shape[0])
+    rand1_idx1 = np.random.randint(0, l2_norms_per_token_per_sample.shape[2])
+    rand2_idx0 = np.random.randint(0, l2_norms_per_token_per_sample.shape[0])
+    rand2_idx1 = np.random.randint(0, l2_norms_per_token_per_sample.shape[2])
+    input_l2_norm_1 = l2_norms_per_token_per_sample[rand1_idx0, :, rand1_idx1]
+    input_l2_norm_2 = l2_norms_per_token_per_sample[rand2_idx0, :, rand2_idx1]
     input_l2_norm = torch.mean(l2_norms_per_token_per_sample, dim=2)
     input_l2_norm = torch.mean(input_l2_norm, dim=0)
     x = torch.zeros((u.shape[0], args.dim_h, args.dim_v), device=deltaA.device)
     state_norm = []
     input_norm = []
+    input_norm_1 = []
+    input_norm_2 = []
     for i in range(seqlen):
         x_l2_norm = torch.linalg.norm(x, dim=2)
-        rand_idx0 = np.random.randint(0, x_l2_norm.shape[0])
-        rand_idx1 = np.random.randint(0, x_l2_norm.shape[1])
-        print(f"Random entry from x_l2_norm before mean: x_l2_norm[{rand_idx0},{rand_idx1}] = {x_l2_norm[rand_idx0, rand_idx1,:].item()}")
-        rand_idx0 = np.random.randint(0, x_l2_norm.shape[0])
-        rand_idx1 = np.random.randint(0, x_l2_norm.shape[1])
-        print(f"Random entry from x_l2_norm before mean: x_l2_norm[{rand_idx0},{rand_idx1}] = {x_l2_norm[rand_idx0, rand_idx1,:].item()}")
+
         x_l2_norm = torch.mean(x_l2_norm, dim=1)
         x_l2_norm = torch.mean(x_l2_norm, dim=0)
         state_update = deltaA[:, i] * x
         state_l2_norm = torch.linalg.norm(state_update, dim=2)
-        rand_idx0 = np.random.randint(0, state_l2_norm.shape[0])
-        rand_idx1 = np.random.randint(0, state_l2_norm.shape[1])
-        print(f"Random entry from state_l2_norm before mean: state_l2_norm[{rand_idx0},{rand_idx1}] = {state_l2_norm[rand_idx0, rand_idx1,:].item()}")
-        rand_idx0 = np.random.randint(0, state_l2_norm.shape[0])
-        rand_idx1 = np.random.randint(0, state_l2_norm.shape[1])
-        print(f"Random entry from state_l2_norm before mean: state_l2_norm[{rand_idx0},{rand_idx1}] = {state_l2_norm[rand_idx0, rand_idx1,:].item()}")
         state_l2_norm = torch.mean(state_l2_norm, dim=1)
         state_l2_norm = torch.mean(state_l2_norm, dim=0)
         if i != 0:
             state_norm.append((state_l2_norm/x_l2_norm).item())
             input_norm.append(((x_l2_norm+input_l2_norm[i])/x_l2_norm).item())
+            input_norm_1.append(((x_l2_norm[rand1_idx0, rand1_idx1]+input_l2_norm_1[i]/x_l2_norm[rand1_idx0, rand1_idx1])).item())
+            input_norm_2.append(((x_l2_norm[rand2_idx0, rand2_idx1]+input_l2_norm_2[i]/x_l2_norm[rand2_idx0, rand2_idx1])).item())
         x = state_update + deltaB_u[:, i]
     
-    return state_norm, input_norm
+    return state_norm, input_norm, input_l2_norm_1, input_l2_norm_2
 
 def test_model_matrix(model, loader, device):
     all_state_norms = []
@@ -221,7 +222,9 @@ def test_model_matrix(model, loader, device):
 
             # predict
             dt, A, B, C, u = model(batch, dist_mask, device)
-            state_norm, input_norm = analyze_B(dt, A, B, u)
+            state_norm, input_norm, input_norm_1, input_norm_2 = analyze_B(dt, A, B, u)
+            print(f"Sample 1 input_norm over test set: {input_norm_1}")
+            print(f"Sample 2 input_norm over test set: {input_norm_2}")
             all_state_norms.append(state_norm)
             all_input_norms.append(input_norm)
             break
