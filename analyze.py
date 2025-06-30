@@ -179,27 +179,10 @@ def create_loader():
     return loaders
 
 
-def analyze_svd(A, name="A", epsilon=1e-6):
-    # Convert to double for better numerical stability
-    A = A.double()
-    # Scaling
-    scaling_factor = A.abs().max().item() if A.abs().max() > 0 else 1.0
-    A_scaled = A / scaling_factor
-    # Regularization
-    if A_scaled.shape[-1] == A_scaled.shape[-2]:
-        A_reg = A_scaled + epsilon * torch.eye(A_scaled.shape[-1], device=A_scaled.device, dtype=A_scaled.dtype)
-    else:
-        A_reg = A_scaled
-    print(f"{name}: scaling factor = {scaling_factor}, epsilon = {epsilon}")
-    # SVD
-    _, S, _ = torch.linalg.svd(A_reg)
-    print(f"Singular values shape: {S.shape}")
-    print(S)
-    print(f"Diagonal A: {A[0,:]}")
-    # Spectral norm
-    spectral_norm = S.max().item()
-    print(f"Spectral norm of {name}: {spectral_norm}")
-    return spectral_norm
+def analyze_svd(A):
+    # Average A over the first three dimensions
+    A_avg = torch.mean(A, dim=(0, 1, 2))
+    print(f"Diagonal deltaA: {A_avg}")
 
 def analyze_B(dt,A_log,B,u):
     seqlen = 40
@@ -207,9 +190,8 @@ def analyze_B(dt,A_log,B,u):
     B = rearrange(B, "b dstate l -> b l dstate", l=seqlen).contiguous()
     u = rearrange(u, "b d l -> b l d", l=seqlen)
     A = -torch.exp(A_log.float())
-    analyze_svd(A, name="A")
     deltaA = torch.exp(einsum(dt, A, 'b l d_in, d_in n -> b l d_in n'))
-    analyze_svd(deltaA[0,0,:], name="deltaA[0,0]")
+    analyze_svd(deltaA, name="deltaA[0,0]")
     deltaB_u = einsum(dt, B, u, 'b l d_in, b l n, b l d_in -> b l d_in n')
     l2_norms_per_token_per_sample = torch.linalg.norm(deltaB_u, dim=3)
     input_l2_norm = torch.mean(l2_norms_per_token_per_sample, dim=2)  # shape: (batch_size, seqlen)
@@ -237,7 +219,6 @@ def analyze_B(dt,A_log,B,u):
 def test_model_matrix(model, loader, device):
     all_state_norms = []
     all_input_norms = []
-    all_input_norms_per_sample = []
     with torch.no_grad():
         for batch in loader:
             print(f"Batch size: {len(batch)}")
@@ -266,20 +247,16 @@ def test_model_matrix(model, loader, device):
             print(f"Sample {second_max_var_idx} input_norm over test set: {input_norm_all[second_max_var_idx]}")
             all_state_norms.append(state_norm)
             all_input_norms.append(input_norm)
-            all_input_norms_per_sample.append(input_norm_all)
             break
 
     # Stack along the batch dimension, but do not reduce further
     state_norm_arr = np.stack(all_state_norms, axis=0)
     input_norm_arr = np.stack(all_input_norms, axis=0)
-    input_norm_arr_per_sample = np.stack(all_input_norms_per_sample, axis=0)
     # Now, mean only over the batch dimension (axis=0), keeping the rest of the dimensions
     mean_state_norm = np.mean(state_norm_arr, axis=0)
     mean_input_norm = np.mean(input_norm_arr, axis=0)
-    mean_input_norm_per_sample = np.stack([np.mean(input_norm_arr_per_sample[:, i, :], axis=0) for i in range(input_norm_arr_per_sample.shape[1])], axis=0)
     print(f"Mean state_norm over test set: {mean_state_norm}")
     print(f"Mean input_norm over test set: {mean_input_norm}")
-    print(f"Mean input_norm per sample over test set: {mean_input_norm_per_sample}")
 
 
 if __name__ == "__main__":
