@@ -169,7 +169,6 @@ def analyze_B(dt,A_log,B,u):
     deltaB_u = einsum(dt, B, u, 'b l d_in, b l n, b l d_in -> b l d_in n')
     l2_norms_per_token_per_sample = torch.linalg.norm(deltaB_u, dim=3)
     # Save the random state before sampling indices
-    rand_state = np.random.get_state()
     rand1_idx0 = np.random.randint(0, l2_norms_per_token_per_sample.shape[0])
     rand1_idx1 = np.random.randint(0, l2_norms_per_token_per_sample.shape[2])
     rand2_idx0 = np.random.randint(0, l2_norms_per_token_per_sample.shape[0])
@@ -185,7 +184,8 @@ def analyze_B(dt,A_log,B,u):
     input_norm_2 = []
     for i in range(seqlen):
         x_l2_norm = torch.linalg.norm(x, dim=2)
-
+        x1 = x_l2_norm[rand1_idx0, rand1_idx1]
+        x2 = x_l2_norm[rand2_idx0, rand2_idx1]
         x_l2_norm = torch.mean(x_l2_norm, dim=1)
         x_l2_norm = torch.mean(x_l2_norm, dim=0)
         state_update = deltaA[:, i] * x
@@ -195,8 +195,8 @@ def analyze_B(dt,A_log,B,u):
         if i != 0:
             state_norm.append((state_l2_norm/x_l2_norm).item())
             input_norm.append(((x_l2_norm+input_l2_norm[i])/x_l2_norm).item())
-            input_norm_1.append(((x_l2_norm[rand1_idx0, rand1_idx1]+input_l2_norm_1[i]/x_l2_norm[rand1_idx0, rand1_idx1])).item())
-            input_norm_2.append(((x_l2_norm[rand2_idx0, rand2_idx1]+input_l2_norm_2[i]/x_l2_norm[rand2_idx0, rand2_idx1])).item())
+            input_norm_1.append(((x1+input_l2_norm_1[i]/x1)).item())
+            input_norm_2.append(((x2+input_l2_norm_2[i]/x2)).item())
         x = state_update + deltaB_u[:, i]
     
     return state_norm, input_norm, input_l2_norm_1, input_l2_norm_2
