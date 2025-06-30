@@ -155,7 +155,7 @@ def main():
             
         print(f"Max graph diameter in training set: {max_graph_diameter}")
 
-    
+    best_score = 0
 
     for e in tqdm(range(args.epochs), desc="Training"):
         model.train()
@@ -268,7 +268,6 @@ def main():
         losses = np.array(losses)
         mean_loss = losses.mean()
 
-        best_score = 0
         if args.name == "peptides-func":
             ap_per_class = average_precision_score(trues, preds, average=None)
             mean_ap = ap_per_class.mean()
