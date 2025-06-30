@@ -172,8 +172,8 @@ def analyze_B(dt,A_log,B,u):
     rand1_idx0 = np.random.randint(0, l2_norms_per_token_per_sample.shape[0])
     rand2_idx0 = np.random.randint(0, l2_norms_per_token_per_sample.shape[0])
     input_l2_norm = torch.mean(l2_norms_per_token_per_sample, dim=2)
-    input_l2_norm_1 = l2_norms_per_token_per_sample[rand1_idx0, :]
-    input_l2_norm_2 = l2_norms_per_token_per_sample[rand2_idx0, :]
+    input_l2_norm_1 = input_l2_norm[rand1_idx0, :]
+    input_l2_norm_2 = input_l2_norm[rand2_idx0, :]
     input_l2_norm = torch.mean(input_l2_norm, dim=0)
     x = torch.zeros((u.shape[0], args.dim_h, args.dim_v), device=deltaA.device)
     state_norm = []
