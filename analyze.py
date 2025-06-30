@@ -170,12 +170,10 @@ def analyze_B(dt,A_log,B,u):
     l2_norms_per_token_per_sample = torch.linalg.norm(deltaB_u, dim=3)
     # Save the random state before sampling indices
     rand1_idx0 = np.random.randint(0, l2_norms_per_token_per_sample.shape[0])
-    rand1_idx1 = np.random.randint(0, l2_norms_per_token_per_sample.shape[2])
     rand2_idx0 = np.random.randint(0, l2_norms_per_token_per_sample.shape[0])
-    rand2_idx1 = np.random.randint(0, l2_norms_per_token_per_sample.shape[2])
-    input_l2_norm_1 = l2_norms_per_token_per_sample[rand1_idx0, :, rand1_idx1]
-    input_l2_norm_2 = l2_norms_per_token_per_sample[rand2_idx0, :, rand2_idx1]
     input_l2_norm = torch.mean(l2_norms_per_token_per_sample, dim=2)
+    input_l2_norm_1 = l2_norms_per_token_per_sample[rand1_idx0, :]
+    input_l2_norm_2 = l2_norms_per_token_per_sample[rand2_idx0, :]
     input_l2_norm = torch.mean(input_l2_norm, dim=0)
     x = torch.zeros((u.shape[0], args.dim_h, args.dim_v), device=deltaA.device)
     state_norm = []
@@ -184,9 +182,9 @@ def analyze_B(dt,A_log,B,u):
     input_norm_2 = []
     for i in range(seqlen):
         x_l2_norm = torch.linalg.norm(x, dim=2)
-        x1 = x_l2_norm[rand1_idx0, rand1_idx1]
-        x2 = x_l2_norm[rand2_idx0, rand2_idx1]
         x_l2_norm = torch.mean(x_l2_norm, dim=1)
+        x1 = x_l2_norm[rand1_idx0]
+        x2 = x_l2_norm[rand2_idx0]
         x_l2_norm = torch.mean(x_l2_norm, dim=0)
         state_update = deltaA[:, i] * x
         state_l2_norm = torch.linalg.norm(state_update, dim=2)
