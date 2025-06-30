@@ -1,7 +1,7 @@
 import torch
 import argparse
 from graph_mamba_first_layer import GPSModel
-from train_peptides_func_mamba import compute_loss, create_loader
+from train_peptides_func_mamba import compute_loss
 import numpy as np
 from sklearn.metrics import average_precision_score
 from einops import einsum, rearrange
@@ -134,6 +134,39 @@ def test_model(model,loader,device):
         print(f"Mean loss: {mean_loss:.4f}")
         print(f"Accuracy: {accuracy:.4f}")
 
+def create_loader():
+    """Create data loader object.
+
+    Returns: List of PyTorch data loaders
+
+    """
+    dataset = None
+    if args.name == "peptides-func":
+        dataset = load_peptides(args.pos_enc)
+    if args.name == 'MNIST' or  args.name == 'CIFAR10':
+        dataset = load_GNNBenchmark(args.name)
+    if dataset is None:
+        print("Error: Dataset could not be loaded. Please check the dataset name and configuration.")
+        exit(1)
+    # train loader
+    id = dataset.data['train_graph_index']
+    loaders = [
+        get_loader(dataset[id], args.batch_size,
+                    shuffle=True)
+    ]
+    delattr(dataset.data, 'train_graph_index')
+
+    # val and test loaders
+    for i in range(2):
+        split_names = ['val_graph_index', 'test_graph_index']
+        id = dataset.data[split_names[i]]
+        loaders.append(
+            get_loader(dataset[id], args.batch_size,
+                        shuffle=False))
+        delattr(dataset.data, split_names[i])
+
+    return loaders
+
 
 def analyze_svd(A, name="A", epsilon=1e-6):
     # Convert to double for better numerical stability
@@ -196,6 +229,7 @@ def test_model_matrix(model, loader, device):
     all_input_norms_per_sample = []
     with torch.no_grad():
         for batch in loader:
+            print(f"Batch size: {len(batch)}")
             # Calculate the max hops in the current batch
             max_hops = max(batch.k_max)
             # Calculate the largest number of nodes in the current batch
@@ -215,6 +249,10 @@ def test_model_matrix(model, loader, device):
             state_norm, input_norm, input_norm_all = analyze_B(dt, A, B, u)
             for i, norm_list in enumerate(input_norm_all):
                 print(f"Sample {i} input_norm over test set: {norm_list}")
+            # Find the sample with the largest variance in input_norm_all and print its norm_list again
+            variances = [np.var(norm_list) for norm_list in input_norm_all]
+            max_var_idx = int(np.argmax(variances))
+            print(f"Sample {max_var_idx} input_norm over test set: {input_norm_all[max_var_idx]}")
             all_state_norms.append(state_norm)
             all_input_norms.append(input_norm)
             all_input_norms_per_sample.append(input_norm_all)
