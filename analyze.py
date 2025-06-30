@@ -5,6 +5,9 @@ from train_peptides_func_mamba import compute_loss
 import numpy as np
 from sklearn.metrics import average_precision_score
 from einops import einsum, rearrange
+from datasets.peptides import load_peptides
+from torch_geometric.loader import DataLoader
+from datasets.GNNBenchmark import load_GNNBenchmark
 
 parser = argparse.ArgumentParser()
 #* model hyper-params
@@ -133,6 +136,14 @@ def test_model(model,loader,device):
         accuracy = np.mean(preds == trues)
         print(f"Mean loss: {mean_loss:.4f}")
         print(f"Accuracy: {accuracy:.4f}")
+
+def get_loader(dataset, batch_size, shuffle=True):
+    pw = False
+    loader_train = DataLoader(dataset, batch_size=batch_size,
+                                  shuffle=shuffle, num_workers=0,
+                                  pin_memory=True, persistent_workers=pw, drop_last=True)
+
+    return loader_train
 
 def create_loader():
     """Create data loader object.
