@@ -175,10 +175,22 @@ def analyze_B(dt,A_log,B,u):
     input_norm = []
     for i in range(seqlen):
         x_l2_norm = torch.linalg.norm(x, dim=2)
+        rand_idx0 = np.random.randint(0, x_l2_norm.shape[0])
+        rand_idx1 = np.random.randint(0, x_l2_norm.shape[1])
+        print(f"Random entry from x_l2_norm before mean: x_l2_norm[{rand_idx0},{rand_idx1}] = {x_l2_norm[rand_idx0, rand_idx1].item()}")
+        rand_idx0 = np.random.randint(0, x_l2_norm.shape[0])
+        rand_idx1 = np.random.randint(0, x_l2_norm.shape[1])
+        print(f"Random entry from x_l2_norm before mean: x_l2_norm[{rand_idx0},{rand_idx1}] = {x_l2_norm[rand_idx0, rand_idx1].item()}")
         x_l2_norm = torch.mean(x_l2_norm, dim=1)
         x_l2_norm = torch.mean(x_l2_norm, dim=0)
         state_update = deltaA[:, i] * x
         state_l2_norm = torch.linalg.norm(state_update, dim=2)
+        rand_idx0 = np.random.randint(0, state_l2_norm.shape[0])
+        rand_idx1 = np.random.randint(0, state_l2_norm.shape[1])
+        print(f"Random entry from state_l2_norm before mean: state_l2_norm[{rand_idx0},{rand_idx1}] = {state_l2_norm[rand_idx0, rand_idx1].item()}")
+        rand_idx0 = np.random.randint(0, x_l2_norm.shape[0])
+        rand_idx1 = np.random.randint(0, x_l2_norm.shape[1])
+        print(f"Random entry from state_l2_norm before mean: state_l2_norm[{rand_idx0},{rand_idx1}] = {state_l2_norm[rand_idx0, rand_idx1].item()}")
         state_l2_norm = torch.mean(state_l2_norm, dim=1)
         state_l2_norm = torch.mean(state_l2_norm, dim=0)
         if i != 0:
