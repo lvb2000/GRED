@@ -191,7 +191,7 @@ def analyze_B(dt,A_log,B,u):
     u = rearrange(u, "b d l -> b l d", l=seqlen)
     A = -torch.exp(A_log.float())
     deltaA = torch.exp(einsum(dt, A, 'b l d_in, d_in n -> b l d_in n'))
-    analyze_svd(deltaA, name="deltaA[0,0]")
+    analyze_svd(deltaA)
     deltaB_u = einsum(dt, B, u, 'b l d_in, b l n, b l d_in -> b l d_in n')
     l2_norms_per_token_per_sample = torch.linalg.norm(deltaB_u, dim=3)
     input_l2_norm = torch.mean(l2_norms_per_token_per_sample, dim=2)  # shape: (batch_size, seqlen)
