@@ -151,6 +151,7 @@ def analyze_svd(A, name="A", epsilon=1e-6):
     _, S, _ = torch.linalg.svd(A_reg)
     print(f"Singular values shape: {S.shape}")
     print(S)
+    print(f"Diagonal A: {A[0,:]}")
     # Spectral norm
     spectral_norm = S.max().item()
     print(f"Spectral norm of {name}: {spectral_norm}")
