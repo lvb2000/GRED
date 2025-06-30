@@ -168,40 +168,32 @@ def analyze_B(dt,A_log,B,u):
     spectral_norm_deltaA = analyze_svd(deltaA[0,0,:], name="deltaA[0,0]")
     deltaB_u = einsum(dt, B, u, 'b l d_in, b l n, b l d_in -> b l d_in n')
     l2_norms_per_token_per_sample = torch.linalg.norm(deltaB_u, dim=3)
-    # Save the random state before sampling indices
-    rand1_idx0 = np.random.randint(0, l2_norms_per_token_per_sample.shape[0])
-    rand2_idx0 = np.random.randint(0, l2_norms_per_token_per_sample.shape[0])
-    input_l2_norm = torch.mean(l2_norms_per_token_per_sample, dim=2)
-    input_l2_norm_1 = input_l2_norm[rand1_idx0, :]
-    input_l2_norm_2 = input_l2_norm[rand2_idx0, :]
-    input_l2_norm = torch.mean(input_l2_norm, dim=0)
+    input_l2_norm = torch.mean(l2_norms_per_token_per_sample, dim=2)  # shape: (batch_size, seqlen)
     x = torch.zeros((u.shape[0], args.dim_h, args.dim_v), device=deltaA.device)
     state_norm = []
     input_norm = []
-    input_norm_1 = []
-    input_norm_2 = []
+    input_norm_all = [[] for _ in range(input_l2_norm.shape[0])]  # one list per sample
     for i in range(seqlen):
         x_l2_norm = torch.linalg.norm(x, dim=2)
-        x_l2_norm = torch.mean(x_l2_norm, dim=1)
-        x1 = x_l2_norm[rand1_idx0]
-        x2 = x_l2_norm[rand2_idx0]
-        x_l2_norm = torch.mean(x_l2_norm, dim=0)
+        x_l2_norm = torch.mean(x_l2_norm, dim=1)  # shape: (batch_size,)
+        x_l2_norm_mean = torch.mean(x_l2_norm, dim=0)
         state_update = deltaA[:, i] * x
         state_l2_norm = torch.linalg.norm(state_update, dim=2)
         state_l2_norm = torch.mean(state_l2_norm, dim=1)
-        state_l2_norm = torch.mean(state_l2_norm, dim=0)
+        state_l2_norm_mean = torch.mean(state_l2_norm, dim=0)
         if i != 0:
-            state_norm.append((state_l2_norm/x_l2_norm).item())
-            input_norm.append(((x_l2_norm+input_l2_norm[i])/x_l2_norm).item())
-            input_norm_1.append(((x1+input_l2_norm_1[i]/x1)).item())
-            input_norm_2.append(((x2+input_l2_norm_2[i]/x2)).item())
+            state_norm.append((state_l2_norm_mean/x_l2_norm_mean).item())
+            input_norm.append(((x_l2_norm_mean+input_l2_norm[:,i].mean())/x_l2_norm_mean).item())
+            for b in range(input_l2_norm.shape[0]):
+                input_norm_all[b].append(((x_l2_norm[b]+input_l2_norm[b,i])/x_l2_norm[b]).item())
         x = state_update + deltaB_u[:, i]
     
-    return state_norm, input_norm, input_l2_norm_1, input_l2_norm_2
+    return state_norm, input_norm, input_norm_all
 
 def test_model_matrix(model, loader, device):
     all_state_norms = []
     all_input_norms = []
+    all_input_norms_per_sample = []
     with torch.no_grad():
         for batch in loader:
             # Calculate the max hops in the current batch
@@ -220,21 +212,25 @@ def test_model_matrix(model, loader, device):
 
             # predict
             dt, A, B, C, u = model(batch, dist_mask, device)
-            state_norm, input_norm, input_norm_1, input_norm_2 = analyze_B(dt, A, B, u)
-            print(f"Sample 1 input_norm over test set: {input_norm_1}")
-            print(f"Sample 2 input_norm over test set: {input_norm_2}")
+            state_norm, input_norm, input_norm_all = analyze_B(dt, A, B, u)
+            for i, norm_list in enumerate(input_norm_all):
+                print(f"Sample {i} input_norm over test set: {norm_list}")
             all_state_norms.append(state_norm)
             all_input_norms.append(input_norm)
+            all_input_norms_per_sample.append(input_norm_all)
             break
 
     # Stack along the batch dimension, but do not reduce further
     state_norm_arr = np.stack(all_state_norms, axis=0)
     input_norm_arr = np.stack(all_input_norms, axis=0)
+    input_norm_arr_per_sample = np.stack(all_input_norms_per_sample, axis=0)
     # Now, mean only over the batch dimension (axis=0), keeping the rest of the dimensions
     mean_state_norm = np.mean(state_norm_arr, axis=0)
     mean_input_norm = np.mean(input_norm_arr, axis=0)
+    mean_input_norm_per_sample = np.stack([np.mean(input_norm_arr_per_sample[:, i, :], axis=0) for i in range(input_norm_arr_per_sample.shape[1])], axis=0)
     print(f"Mean state_norm over test set: {mean_state_norm}")
     print(f"Mean input_norm over test set: {mean_input_norm}")
+    print(f"Mean input_norm per sample over test set: {mean_input_norm_per_sample}")
 
 
 if __name__ == "__main__":
