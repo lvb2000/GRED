@@ -193,6 +193,10 @@ def analyze_B(dt,A_log,B,u):
     deltaA = torch.exp(einsum(dt, A, 'b l d_in, d_in n -> b l d_in n'))
     analyze_svd(deltaA)
     deltaB_u = einsum(dt, B, u, 'b l d_in, b l n, b l d_in -> b l d_in n')
+    deltaB = einsum(dt, B, 'b l d_in, b l n -> b l d_in n')
+    deltaB_norm = torch.linalg.norm(deltaB, dim=-1)  # norm over last dimension
+    deltaB_norm_avg = deltaB_norm.mean(dim=(0, 2))       # mean over dim 0 and 2
+    print("Mean norm over dim 0 and 2:", deltaB_norm_avg)
     l2_norms_per_token_per_sample = torch.linalg.norm(deltaB_u, dim=3)
     input_l2_norm = torch.mean(l2_norms_per_token_per_sample, dim=2)  # shape: (batch_size, seqlen)
     x = torch.zeros((u.shape[0], args.dim_h, args.dim_v), device=deltaA.device)
