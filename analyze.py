@@ -185,7 +185,7 @@ def analyze_svd(A):
     print(f"Diagonal deltaA: {A_avg}")
 
 def analyze_B(dt,A_log,B,u):
-    seqlen = 40
+    seqlen = args.num_hops
     dt = rearrange(dt, "b d l -> b l d", l=seqlen)
     B = rearrange(B, "b dstate l -> b l dstate", l=seqlen).contiguous()
     u = rearrange(u, "b d l -> b l d", l=seqlen)
