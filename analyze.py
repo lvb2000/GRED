@@ -199,19 +199,22 @@ def analyze_B(dt,A_log,B,u):
     state_norm = []
     input_norm = []
     input_norm_all = [[] for _ in range(input_l2_norm.shape[0])]  # one list per sample
+    x_final = x
     for i in range(seqlen):
-        x_l2_norm = torch.linalg.norm(x, dim=2)
-        x_l2_norm = torch.mean(x_l2_norm, dim=1)  # shape: (batch_size,)
-        x_l2_norm_mean = torch.mean(x_l2_norm, dim=0)
+        x_final = deltaA[:, i] * x_final + deltaB_u[:, i]
+    x_l2_norm_final = torch.linalg.norm(x_final, dim=2)
+    x_l2_norm_final = torch.mean(x_l2_norm_final, dim=1)  # shape: (batch_size,)
+    x_l2_norm_mean_final = torch.mean(x_l2_norm_final, dim=0)
+    for i in range(seqlen):
         state_update = deltaA[:, i] * x
         state_l2_norm = torch.linalg.norm(state_update, dim=2)
         state_l2_norm = torch.mean(state_l2_norm, dim=1)
         state_l2_norm_mean = torch.mean(state_l2_norm, dim=0)
         if i != 0:
-            state_norm.append((state_l2_norm_mean/x_l2_norm_mean).item())
-            input_norm.append(((x_l2_norm_mean+input_l2_norm[:,i].mean())/x_l2_norm_mean).item())
+            state_norm.append((state_l2_norm_mean/x_l2_norm_mean_final).item())
+            input_norm.append(((x_l2_norm_mean_final+input_l2_norm[:,i].mean())/x_l2_norm_mean_final).item())
             for b in range(input_l2_norm.shape[0]):
-                input_norm_all[b].append(((x_l2_norm[b]+input_l2_norm[b,i])/x_l2_norm[b]).item())
+                input_norm_all[b].append(((x_l2_norm_final[b]+input_l2_norm[b,i])/x_l2_norm_final[b]).item())
         x = state_update + deltaB_u[:, i]
     
     return state_norm, input_norm, input_norm_all
