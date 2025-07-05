@@ -3,7 +3,6 @@ import torch.nn as nn
 #from mamba import Mamba,ModelArgs
 from mamba_ssm import Mamba
 from torch_geometric.utils import to_dense_batch
-from GatedGCN import GatedGCNLayer
 import torch_geometric.data as pygdata
 from torch_geometric.graphgym import BondEncoder, AtomEncoder
 from composed_encoders import concat_node_encoders
