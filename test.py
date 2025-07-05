@@ -26,7 +26,6 @@ parser.add_argument("--feature_dimension", default=9, type=int)
 parser.add_argument("--pos_enc", default=False, type=bool)
 parser.add_argument("--local_model", default=False, type=bool)
 parser.add_argument("--checkpoint_dir",default="", type=str)
-parser.add_argument("--wandb_artifact",default="",type=str)
 #* training hyper-params
 parser.add_argument("--batch_accumulation", default=2, type=int)
 parser.add_argument("--base_lr", default=0.001, type=float)
@@ -53,7 +52,7 @@ def load_checkpoint(model):
         model: The loaded model with weights restored.
     """
     run = wandb.run
-    artifact = run.use_artifact(args.wandb_artifact, type='model')
+    artifact = run.use_artifact(args.checkpoint_dir, type='model')
     artifact_dir = artifact.download()
     model_path = f"{artifact_dir}/model.pth"
     #checkpoint_path="Checkpoints/best_model_epoch_132.pth"
