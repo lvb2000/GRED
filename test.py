@@ -1,7 +1,6 @@
 import torch
 import argparse
 from graph_mamba import GPSModel
-from train_peptides_func_mamba import compute_loss
 import numpy as np
 from sklearn.metrics import average_precision_score
 from einops import einsum, rearrange
@@ -61,6 +60,34 @@ def load_checkpoint(model):
     model.eval()
     print("Model loaded successfully!")
     return model
+
+def compute_loss(pred, true):
+    """
+    Compute loss and prediction score
+
+    Args:
+        pred (torch.tensor): Unnormalized prediction
+        true (torch.tensor): Grou
+
+    Returns: Loss, normalized prediction score
+
+    """
+    bce_loss = torch.nn.BCEWithLogitsLoss()
+
+    # default manipulation for pred and true
+    # can be skipped if special loss computation is needed
+    pred = pred.squeeze(-1) if pred.ndim > 1 else pred
+    true = true.squeeze(-1) if true.ndim > 1 else true
+
+    # CrossEntropy Loss
+    # multiclass
+    if pred.ndim > 1 and true.ndim == 1:
+        pred = torch.nn.functional.log_softmax(pred, dim=-1)
+        return torch.nn.functional.nll_loss(pred, true), pred
+    # binary or multilabel
+    else:
+        true = true.float()
+        return bce_loss(pred, true), torch.sigmoid(pred)
 
 
 def test_model(model,loader,device):
