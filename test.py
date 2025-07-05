@@ -56,7 +56,7 @@ def load_checkpoint(model):
     artifact_dir = artifact.download()
     model_path = f"{artifact_dir}/{args.model_file}"
     checkpoint = torch.load(model_path, map_location=torch.device('cpu'))
-    model.load_state_dict(checkpoint['model_state_dict'], strict=False)
+    model.load_state_dict(checkpoint['state_dict'], strict=False)
     model.eval()
     print("Model loaded successfully!")
     return model
