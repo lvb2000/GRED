@@ -56,6 +56,11 @@ def load_checkpoint(model):
     artifact_dir = artifact.download()
     model_path = f"{artifact_dir}/{args.model_file}"
     checkpoint = torch.load(model_path, map_location=torch.device('cpu'))
+    print("Contents of checkpoint:", checkpoint) # For a quick look if it's not too big
+    if isinstance(checkpoint, dict):
+        print("Keys in checkpoint dictionary:", checkpoint.keys())
+    else:
+        print("Checkpoint is not a dictionary. Type:", type(checkpoint))
     model.load_state_dict(checkpoint['state_dict'], strict=False)
     model.eval()
     print("Model loaded successfully!")
