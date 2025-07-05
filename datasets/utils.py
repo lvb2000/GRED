@@ -3,7 +3,6 @@ from functools import partial
 from scipy.sparse.csgraph import floyd_warshall
 from tqdm import tqdm
 from torch_geometric.graphgym.loader import set_dataset_attr
-import torch
 
 def set_dataset_splits(dataset, splits):
     """Set given splits to the dataset object.
@@ -85,10 +84,8 @@ func_sp = partial(floyd_warshall, directed=False, unweighted=True)
 def gen_dist_mask(adj):
     dist = func_sp(adj)
     dist = np.where(np.isfinite(dist), dist, -1).astype(np.int32)
-    dist = torch.from_numpy(dist)
     k_max = dist.max() + 1
-    k_max = torch.tensor(k_max, dtype=torch.int32)
-    dist_mask = torch.stack([(dist == k) for k in range(k_max)])
+    dist_mask = np.stack([(dist == k) for k in range(k_max)])
     return dist_mask, k_max
 
 def compute_dist_mask(g):
