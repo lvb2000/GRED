@@ -342,6 +342,6 @@ class GPSModel(nn.Module):
         inputs.x = self.linearEncoder(self.gelu(inputs.x))
         
         #----------- Modified Graph Mamba Layer -----------#
-        dt,A,B,C,x = self.layer(inputs, dist_mask)
-        return dt,A,B,C,x
+        dt,A,B,C,x,first_zero_idx = self.layer(inputs, dist_mask)
+        return dt,A,B,C,x,first_zero_idx
             
