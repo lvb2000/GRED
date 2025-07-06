@@ -241,7 +241,7 @@ def test_model_matrix(model, loader, device):
 
             # predict
             dt, A, B, C, u, first_zero_idx = model(batch, dist_mask, device)
-            input_norm, input_norm_all,deltaB_norm_avg = analyze_B(dt, A, B, example)
+            input_norm, input_norm_all,deltaB_norm_avg = analyze_B(dt, A, B, u, example)
             if example:
                 example = False
                 # Find the samples with the largest and second largest variance in input_norm_all
