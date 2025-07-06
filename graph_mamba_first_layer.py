@@ -66,14 +66,15 @@ def sumNodeFeatures(distance_masks,node_features,graph_labels):
         aggregated_features = torch.transpose(distance_masks, 0, 1) @ dense_features
         # Apply mask to the second dimension (nodes) of aggregated_features
         aggregated_features = aggregated_features[:, mask, :]
-        # For each sequence index (dim 0), find the first node index (dim 1) where all features (dim 2) are zero,
-        # i.e., the sum over dim 2 is zero. This is the start of padding for that sequence position.
-        # Returns a tensor of shape (seq_len,) with the index of the first all-zero row for each sequence position,
+        # For each node (dim 0), find the first sequence index (dim 1) where all features (dim 2) are zero,
+        # i.e., the sum over dim 2 is zero. This is the start of padding for that node.
+        # Returns a tensor of shape (num_nodes,) with the index of the first all-zero row for each node,
         # or -1 if there is no such row.
-        # aggregated_features: (seq_len, num_nodes, feature_dim)
-        feature_sums = aggregated_features.abs().sum(dim=2)  # (seq_len, num_nodes)
-        is_zero = feature_sums == 0  # (seq_len, num_nodes), True where all features are zero
-        # For each sequence index, find the first node index where is_zero is True, or -1 if never True
+        # aggregated_features: (num_nodes, seq_len, feature_dim)
+        feature_sums = aggregated_features.sum(dim=2)  # (num_nodes, seq_len)
+        feature_sums = feature_sums.transpose(0, 1)
+        is_zero = feature_sums == 0  # (num_nodes, seq_len), True where all features are zero
+        # For each node, find the first index where is_zero is True, or -1 if never True
         has_zero = is_zero.any(dim=1)
         first_zero_idx = is_zero.float().argmax(dim=1)
         # If no zero row, set to -1
