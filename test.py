@@ -127,20 +127,23 @@ def test_model(model,loader,device):
     preds = np.vstack(preds)
     trues = np.vstack(trues)
     # Remove rows where preds or trues contain NaNs
-    if args.name == "peptides-func":
-        mask = ~(np.isnan(preds).any(axis=1) | np.isnan(trues).any(axis=1))
-        preds = preds[mask]
-        trues = trues[mask]
+    #if args.name == "peptides-func":
+    #    mask = ~(np.isnan(preds).any(axis=1) | np.isnan(trues).any(axis=1))
+    #    preds = preds[mask]
+    #    trues = trues[mask]
 
     losses = np.array(losses)
     mean_loss = losses.mean()
 
     if args.name == "peptides-func":
-        ap_per_class = average_precision_score(trues, preds, average=None)
-        mean_ap = ap_per_class.mean()
-        print(f"Mean loss: {mean_loss:.4f}")
-        print(f"Average Precision per class: {ap_per_class}")
-        print(f"Mean Average Precision: {mean_ap:.4f}")
+        #ap_per_class = average_precision_score(trues, preds, average=None)
+        #mean_ap = ap_per_class.mean()
+        #print(f"Mean loss: {mean_loss:.4f}")
+        #print(f"Average Precision per class: {ap_per_class}")
+        #print(f"Mean Average Precision: {mean_ap:.4f}")
+        # Additional evaluation using eval_ap
+        mean_ap_eval = eval_ap(trues, preds)
+        print(f"Mean Average Precision (eval_ap method): {mean_ap_eval:.4f}")
     elif args.name in ['MNIST', 'CIFAR10']:
         # Calculate accuracy
         accuracy = np.mean(preds == trues)
@@ -188,7 +191,24 @@ def create_loader():
 
     return loaders
 
-
+def eval_ap(y_true, y_pred):
+    '''
+        compute Average Precision (AP) averaged across tasks
+        from https://github.com/rampasek/GraphGPS/blob/main/graphgps/metrics_ogb.py#L31
+    '''
+    ap_list = []
+    for i in range(y_true.shape[1]):
+        # AUC is only defined when there is at least one positive data.
+        if np.sum(y_true[:, i] == 1) > 0 and np.sum(y_true[:, i] == 0) > 0:
+            # ignore nan values
+            is_labeled = y_true[:, i] == y_true[:, i]
+            ap = average_precision_score(y_true[is_labeled, i],
+                                         y_pred[is_labeled, i])
+            ap_list.append(ap)
+    if len(ap_list) == 0:
+        raise RuntimeError(
+            'No positively labeled data available. Cannot compute Average Precision.')
+    return sum(ap_list) / len(ap_list)
 
 if __name__ == "__main__":
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
