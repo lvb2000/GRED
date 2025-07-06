@@ -253,6 +253,10 @@ def test_model_matrix(model, loader, device):
             print(f"Sample {max_var_idx} first_zero_idx: {first_zero_idx[max_var_idx]}")
             print(f"Sample {second_max_var_idx} input_norm over test set: {input_norm_all[second_max_var_idx]}")
             print(f"Sample {second_max_var_idx} first_zero_idx: {first_zero_idx[second_max_var_idx]}")
+            max_first_zero_idx = int(np.argmax(first_zero_idx))
+            print(f"Sample with highest first_zero_idx index: {max_first_zero_idx}")
+            print(f"first_zero_idx value: {first_zero_idx[max_first_zero_idx]}")
+            print(f"input_norm_all value: {input_norm_all[max_first_zero_idx]}")
             all_state_norms.append(state_norm)
             all_input_norms.append(input_norm)
             break
