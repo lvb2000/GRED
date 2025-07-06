@@ -261,6 +261,7 @@ def test_model_matrix(model, loader, device):
                 print(f"input_norm_all value: {input_norm_all[max_first_zero_idx]}")
             all_input_norms.append(input_norm)
             all_deltaB_norms.append(deltaB_norm_avg)
+            break
 
     # Stack along the batch dimension, but do not reduce further
     input_norm_arr = np.stack(all_input_norms, axis=0)
