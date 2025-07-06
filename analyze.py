@@ -226,7 +226,7 @@ def test_model_matrix(model, loader, device):
     with torch.no_grad():
         for batch in loader:
             # Calculate the max hops in the current batch
-            max_hops = max(batch.k_max)
+            max_hops = args.num_hops
             # Calculate the largest number of nodes in the current batch
             max_nodes = max(batch.graph_nodes)
             batch_size = len(batch.dist_mask)
