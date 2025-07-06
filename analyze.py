@@ -173,7 +173,7 @@ def create_loader():
         id = dataset.data[split_names[i]]
         loaders.append(
             get_loader(dataset[id], args.batch_size,
-                        shuffle=False))
+                        shuffle=True))
         delattr(dataset.data, split_names[i])
 
     return loaders
