@@ -223,6 +223,7 @@ def test_model_matrix(model, loader, device):
     all_input_norms = []
     all_deltaB_norms = []
     example = True
+    count = 0
     with torch.no_grad():
         for batch in loader:
             # Calculate the max hops in the current batch
@@ -261,7 +262,9 @@ def test_model_matrix(model, loader, device):
                 print(f"input_norm_all value: {input_norm_all[max_first_zero_idx]}")
             all_input_norms.append(input_norm)
             all_deltaB_norms.append(deltaB_norm_avg)
-            break
+            if count >=10:
+                break
+            count +=1
 
     # Stack along the batch dimension, but do not reduce further
     input_norm_arr = np.stack(all_input_norms, axis=0)
