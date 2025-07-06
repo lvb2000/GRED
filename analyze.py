@@ -184,23 +184,22 @@ def analyze_svd(A):
     A_avg = torch.mean(A, dim=(0, 1, 2))
     print(f"Diagonal deltaA: {A_avg}")
 
-def analyze_B(dt,A_log,B,u):
+def analyze_B(dt,A_log,B,u,example):
     seqlen = args.num_hops
     dt = rearrange(dt, "b d l -> b l d", l=seqlen)
     B = rearrange(B, "b dstate l -> b l dstate", l=seqlen).contiguous()
     u = rearrange(u, "b d l -> b l d", l=seqlen)
     A = -torch.exp(A_log.float())
     deltaA = torch.exp(einsum(dt, A, 'b l d_in, d_in n -> b l d_in n'))
-    analyze_svd(deltaA)
+    if example:
+        analyze_svd(deltaA)
     deltaB_u = einsum(dt, B, u, 'b l d_in, b l n, b l d_in -> b l d_in n')
     deltaB = einsum(dt, B, 'b l d_in, b l n -> b l d_in n')
     deltaB_norm = torch.linalg.norm(deltaB, dim=-1)  # norm over last dimension
     deltaB_norm_avg = deltaB_norm.mean(dim=(0, 2))       # mean over dim 0 and 2
-    print("Mean norm over dim 0 and 2:", deltaB_norm_avg)
     l2_norms_per_token_per_sample = torch.linalg.norm(deltaB_u, dim=3)
     input_l2_norm = torch.mean(l2_norms_per_token_per_sample, dim=2)  # shape: (batch_size, seqlen)
     x = torch.zeros((u.shape[0], args.dim_h, args.dim_v), device=deltaA.device)
-    state_norm = []
     input_norm = []
     input_norm_all = [[] for _ in range(input_l2_norm.shape[0])]  # one list per sample
     x_final = x
@@ -213,21 +212,19 @@ def analyze_B(dt,A_log,B,u):
         state_update = deltaA[:, i] * x
         state_l2_norm = torch.linalg.norm(state_update, dim=2)
         state_l2_norm = torch.mean(state_l2_norm, dim=1)
-        state_l2_norm_mean = torch.mean(state_l2_norm, dim=0)
-        state_norm.append((state_l2_norm_mean/x_l2_norm_mean_final).item())
         input_norm.append(((x_l2_norm_mean_final+input_l2_norm[:,i].mean())/x_l2_norm_mean_final).item())
         for b in range(input_l2_norm.shape[0]):
             input_norm_all[b].append(((x_l2_norm_final[b]+input_l2_norm[b,i])/x_l2_norm_final[b]).item())
         x = state_update + deltaB_u[:, i]
     
-    return state_norm, input_norm, input_norm_all
+    return input_norm, input_norm_all, deltaB_norm_avg
 
 def test_model_matrix(model, loader, device):
     all_input_norms = []
+    all_deltaB_norms = []
     example = True
     with torch.no_grad():
         for batch in loader:
-            print(f"Batch size: {len(batch)}")
             # Calculate the max hops in the current batch
             max_hops = max(batch.k_max)
             # Calculate the largest number of nodes in the current batch
@@ -244,7 +241,7 @@ def test_model_matrix(model, loader, device):
 
             # predict
             dt, A, B, C, u, first_zero_idx = model(batch, dist_mask, device)
-            state_norm, input_norm, input_norm_all = analyze_B(dt, A, B, u)
+            input_norm, input_norm_all,deltaB_norm_avg = analyze_B(dt, A, B, example)
             if example:
                 example = False
                 # Find the samples with the largest and second largest variance in input_norm_all
@@ -261,12 +258,16 @@ def test_model_matrix(model, loader, device):
                 print(f"first_zero_idx value: {first_zero_idx[max_first_zero_idx]}")
                 print(f"input_norm_all value: {input_norm_all[max_first_zero_idx]}")
             all_input_norms.append(input_norm)
+            all_deltaB_norms.append(deltaB_norm_avg)
 
     # Stack along the batch dimension, but do not reduce further
     input_norm_arr = np.stack(all_input_norms, axis=0)
+    deltaB_norm_arr = np.stack(all_deltaB_norms,axis=0)
     # Now, mean only over the batch dimension (axis=0), keeping the rest of the dimensions
     mean_input_norm = np.mean(input_norm_arr, axis=0)
+    mean_deltaB_norm = np.mean(deltaB_norm_arr,axis=0)
     print(f"Mean input_norm over test set: {mean_input_norm}")
+    print(f"Mean deltaB_norm over test set: {mean_deltaB_norm}")
 
 
 if __name__ == "__main__":
