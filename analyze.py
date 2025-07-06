@@ -223,8 +223,8 @@ def analyze_B(dt,A_log,B,u):
     return state_norm, input_norm, input_norm_all
 
 def test_model_matrix(model, loader, device):
-    all_state_norms = []
     all_input_norms = []
+    example = True
     with torch.no_grad():
         for batch in loader:
             print(f"Batch size: {len(batch)}")
@@ -245,29 +245,27 @@ def test_model_matrix(model, loader, device):
             # predict
             dt, A, B, C, u, first_zero_idx = model(batch, dist_mask, device)
             state_norm, input_norm, input_norm_all = analyze_B(dt, A, B, u)
-            # Find the samples with the largest and second largest variance in input_norm_all
-            variances = [np.var(norm_list) for norm_list in input_norm_all]
-            max_var_idx = int(np.argmax(variances))
-            second_max_var_idx = int(np.argsort(variances)[-2])
-            print(f"Sample {max_var_idx} input_norm over test set: {input_norm_all[max_var_idx]}")
-            print(f"Sample {max_var_idx} first_zero_idx: {first_zero_idx[max_var_idx]}")
-            print(f"Sample {second_max_var_idx} input_norm over test set: {input_norm_all[second_max_var_idx]}")
-            print(f"Sample {second_max_var_idx} first_zero_idx: {first_zero_idx[second_max_var_idx]}")
-            max_first_zero_idx = int(np.argmax(first_zero_idx))
-            print(f"Sample with highest first_zero_idx index: {max_first_zero_idx}")
-            print(f"first_zero_idx value: {first_zero_idx[max_first_zero_idx]}")
-            print(f"input_norm_all value: {input_norm_all[max_first_zero_idx]}")
-            all_state_norms.append(state_norm)
+            if example:
+                example = False
+                # Find the samples with the largest and second largest variance in input_norm_all
+                variances = [np.var(norm_list) for norm_list in input_norm_all]
+                max_var_idx = int(np.argmax(variances))
+                second_max_var_idx = int(np.argsort(variances)[-2])
+                print(f"Sample {max_var_idx} input_norm over test set: {input_norm_all[max_var_idx]}")
+                print(f"Sample {max_var_idx} first_zero_idx: {first_zero_idx[max_var_idx]}")
+                print(f"Sample {second_max_var_idx} input_norm over test set: {input_norm_all[second_max_var_idx]}")
+                print(f"Sample {second_max_var_idx} first_zero_idx: {first_zero_idx[second_max_var_idx]}")
+                first_zero_idx_np = first_zero_idx.detach().cpu().numpy()
+                max_first_zero_idx = int(np.argmax(first_zero_idx_np))
+                print(f"Sample with highest first_zero_idx index: {max_first_zero_idx}")
+                print(f"first_zero_idx value: {first_zero_idx[max_first_zero_idx]}")
+                print(f"input_norm_all value: {input_norm_all[max_first_zero_idx]}")
             all_input_norms.append(input_norm)
-            break
 
     # Stack along the batch dimension, but do not reduce further
-    state_norm_arr = np.stack(all_state_norms, axis=0)
     input_norm_arr = np.stack(all_input_norms, axis=0)
     # Now, mean only over the batch dimension (axis=0), keeping the rest of the dimensions
-    mean_state_norm = np.mean(state_norm_arr, axis=0)
     mean_input_norm = np.mean(input_norm_arr, axis=0)
-    print(f"Mean state_norm over test set: {mean_state_norm}")
     print(f"Mean input_norm over test set: {mean_input_norm}")
 
 
