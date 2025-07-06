@@ -257,9 +257,14 @@ def test_model_matrix(model, loader, device):
                 print(f"Sample {second_max_var_idx} first_zero_idx: {first_zero_idx[second_max_var_idx]}")
                 first_zero_idx_np = first_zero_idx.detach().cpu().numpy()
                 max_first_zero_idx = int(np.argmax(first_zero_idx_np))
+                min_first_zero_idx = int(np.argmin(first_zero_idx_np))
                 print(f"Sample with highest first_zero_idx index: {max_first_zero_idx}")
                 print(f"first_zero_idx value: {first_zero_idx[max_first_zero_idx]}")
                 print(f"input_norm_all value: {input_norm_all[max_first_zero_idx]}")
+                print(f"Sample with lowest first_zero_idx index: {min_first_zero_idx}")
+                print(f"first_zero_idx value: {first_zero_idx[min_first_zero_idx]}")
+                print(f"input_norm_all value: {input_norm_all[min_first_zero_idx]}")
+                
             all_input_norms.append(input_norm)
             all_deltaB_norms.append(deltaB_norm_avg.detach().cpu().numpy())
             if count >=10:
