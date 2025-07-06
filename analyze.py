@@ -243,14 +243,16 @@ def test_model_matrix(model, loader, device):
             batch.to(device)
 
             # predict
-            dt, A, B, C, u = model(batch, dist_mask, device)
+            dt, A, B, C, u, first_zero_idx = model(batch, dist_mask, device)
             state_norm, input_norm, input_norm_all = analyze_B(dt, A, B, u)
             # Find the samples with the largest and second largest variance in input_norm_all
             variances = [np.var(norm_list) for norm_list in input_norm_all]
             max_var_idx = int(np.argmax(variances))
             second_max_var_idx = int(np.argsort(variances)[-2])
             print(f"Sample {max_var_idx} input_norm over test set: {input_norm_all[max_var_idx]}")
+            print(f"Sample {max_var_idx} first_zero_idx: {first_zero_idx[max_var_idx]}")
             print(f"Sample {second_max_var_idx} input_norm over test set: {input_norm_all[second_max_var_idx]}")
+            print(f"Sample {second_max_var_idx} first_zero_idx: {first_zero_idx[second_max_var_idx]}")
             all_state_norms.append(state_norm)
             all_input_norms.append(input_norm)
             break
