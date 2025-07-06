@@ -261,7 +261,7 @@ def test_model_matrix(model, loader, device):
                 print(f"first_zero_idx value: {first_zero_idx[max_first_zero_idx]}")
                 print(f"input_norm_all value: {input_norm_all[max_first_zero_idx]}")
             all_input_norms.append(input_norm)
-            all_deltaB_norms.append(deltaB_norm_avg)
+            all_deltaB_norms.append(deltaB_norm_avg.detach().cpu().numpy())
             if count >=10:
                 break
             count +=1
